@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: gradely-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: gradely
+    ports:
+      - "5432:5432"
+    volumes:
+      - gradely_pg:/var/lib/postgresql/data
+
+volumes:
+  gradely_pg:

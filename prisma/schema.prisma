@@ -1,0 +1,105 @@
+// Gradely schema
+// --------------------------------------------------------------
+// SQLite by default (zero-infra, single-file, ideal for a school-local
+// deployment). SQLite does not support Prisma enums, so enum-like fields
+// are stored as plain strings with literal unions enforced at the
+// application layer (see src/lib/enums.ts).
+//
+// To use Postgres instead, change `provider` to "postgresql", restore the
+// enum blocks, and point DATABASE_URL at your server.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  // UserRole: "STAFF" | "ADMIN"
+  role      String   @default("STAFF")
+  createdAt DateTime @default(now())
+  notes     Note[]
+  uploads   UploadSession[]
+}
+
+model Student {
+  id         String   @id @default(cuid())
+  externalId String?  @unique // the school's student ID as printed on rosters
+  firstName  String
+  lastName   String
+  className  String?  // e.g. "10-B"
+  avatarHue  Int      @default(210) // used to color initials avatar
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  grades Grade[]
+  notes  Note[]
+
+  @@index([lastName, firstName])
+  @@index([className])
+}
+
+model Subject {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  code   String? @unique
+  color  String  @default("#6366f1")
+  grades Grade[]
+}
+
+model Grade {
+  id        String   @id @default(cuid())
+  studentId String
+  subjectId String
+  value     Float
+  term      String?  // "Fall 2024", "Q1", etc.
+  gradedAt  DateTime @default(now())
+  // GradeSource: "MANUAL" | "OCR" | "IMPORT"
+  source    String   @default("MANUAL")
+  uploadId  String?
+
+  student  Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject  Subject        @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  upload   UploadSession? @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+
+  @@index([studentId])
+  @@index([subjectId])
+  @@index([gradedAt])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  studentId String
+  authorId  String?
+  // NoteCategory: "GENERAL" | "BEHAVIOR" | "PROGRESS" | "CONCERN" | "STRENGTH"
+  category  String   @default("GENERAL")
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  author  User?   @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([studentId])
+}
+
+model UploadSession {
+  id            String   @id @default(cuid())
+  uploaderId    String?
+  fileName      String
+  imagePath     String?
+  // UploadStatus: "PARSED" | "REVIEWED" | "SAVED" | "DISCARDED"
+  status        String   @default("PARSED")
+  rowCount      Int      @default(0)
+  avgConfidence Float?
+  createdAt     DateTime @default(now())
+
+  uploader User?   @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
+  grades   Grade[]
+}

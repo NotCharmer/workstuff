@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 99%;
+    --foreground: 222 33% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 33% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 33% 12%;
+
+    --primary: 231 72% 56%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 220 20% 96%;
+    --secondary-foreground: 222 33% 18%;
+
+    --muted: 220 20% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 231 90% 96%;
+    --accent-foreground: 231 72% 40%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 152 60% 40%;
+    --success-foreground: 210 40% 98%;
+
+    --warning: 35 92% 50%;
+    --warning-foreground: 222 33% 12%;
+
+    --border: 220 16% 90%;
+    --input: 220 16% 90%;
+    --ring: 231 72% 56%;
+
+    --radius: 0.85rem;
+  }
+
+  .dark {
+    --background: 222 32% 7%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 30% 10%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 30% 10%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 231 90% 70%;
+    --primary-foreground: 222 33% 10%;
+
+    --secondary: 222 25% 15%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 222 25% 15%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 231 60% 22%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 63% 48%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 152 55% 48%;
+    --success-foreground: 222 33% 10%;
+
+    --warning: 35 90% 55%;
+    --warning-foreground: 222 33% 10%;
+
+    --border: 222 25% 18%;
+    --input: 222 25% 18%;
+    --ring: 231 90% 70%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html,
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01", "ss03";
+  }
+  ::selection {
+    @apply bg-primary/20;
+  }
+}
+
+@layer utilities {
+  .gradient-surface {
+    background-image: radial-gradient(
+        1200px 400px at 10% -10%,
+        hsl(var(--primary) / 0.12),
+        transparent 60%
+      ),
+      radial-gradient(
+        800px 300px at 110% 0%,
+        hsl(var(--accent) / 0.5),
+        transparent 60%
+      );
+  }
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted-foreground) / 0.1) 50%,
+      hsl(var(--muted)) 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+  }
+}
+
+/* Recharts styling hooks */
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+.recharts-default-tooltip {
+  @apply !rounded-lg !border !border-border !bg-popover !text-popover-foreground !shadow-card;
+}
