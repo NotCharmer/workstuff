@@ -1,0 +1,40 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { TimetablePayloadSchema } from "@/lib/validators";
+import { he } from "@/lib/i18n/he";
+
+export const runtime = "nodejs";
+
+export async function POST(req: Request) {
+  const body = await req.json().catch(() => null);
+  const parsed = TimetablePayloadSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { ok: false, error: parsed.error.issues[0]?.message ?? he.api.invalidInput },
+      { status: 400 }
+    );
+  }
+
+  const rows = parsed.data.rows;
+  const classes = Array.from(new Set(rows.map((r) => r.className.trim())));
+
+  await prisma.$transaction(async (tx) => {
+    for (const className of classes) {
+      await tx.timetableEntry.deleteMany({ where: { className } });
+    }
+    await tx.timetableEntry.createMany({
+      data: rows.map((r) => ({
+        className: r.className.trim(),
+        dayOfWeek: r.dayOfWeek.trim(),
+        startTime: r.startTime.trim(),
+        endTime: r.endTime.trim(),
+        subject: r.subject.trim(),
+        teacher: r.teacher?.trim() || null,
+        room: r.room?.trim() || null,
+        source: "IMPORT",
+      })),
+    });
+  });
+
+  return NextResponse.json({ ok: true, saved: rows.length, classes: classes.length });
+}

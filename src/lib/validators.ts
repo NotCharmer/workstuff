@@ -28,3 +28,33 @@ export const NoteSchema = z.object({
   category: z.enum(["GENERAL", "BEHAVIOR", "PROGRESS", "CONCERN", "STRENGTH"]),
 });
 export type NoteInput = z.infer<typeof NoteSchema>;
+
+export const ManualGradeSchema = z.object({
+  subject: z.string().trim().min(1, he.validators.subjectRequired),
+  value: z
+    .number({ invalid_type_error: he.validators.gradeNumber })
+    .min(0, he.validators.min0)
+    .max(100, he.validators.max100),
+  gradedAt: z.string().datetime().optional(),
+});
+export type ManualGradeInput = z.infer<typeof ManualGradeSchema>;
+
+export const ToggleImportantSubjectSchema = z.object({
+  isImportant: z.boolean(),
+});
+
+export const TimetableRowSchema = z.object({
+  id: z.string(),
+  className: z.string().min(1),
+  dayOfWeek: z.string().min(1),
+  startTime: z.string().min(1),
+  endTime: z.string().min(1),
+  subject: z.string().min(1),
+  teacher: z.string().optional().nullable(),
+  room: z.string().optional().nullable(),
+  confidence: z.number().min(0).max(1).optional(),
+});
+
+export const TimetablePayloadSchema = z.object({
+  rows: z.array(TimetableRowSchema).min(1),
+});

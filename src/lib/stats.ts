@@ -19,7 +19,7 @@ export type DashboardStats = {
   }[];
   topStudents: { id: string; name: string; avg: number; className: string | null }[];
   attentionStudents: { id: string; name: string; avg: number; className: string | null }[];
-  subjectAverages: { subject: string; avg: number; color: string }[];
+  subjectAverages: { subject: string; avg: number; color: string; isImportant: boolean }[];
 };
 
 const PASS_CUTOFF = 60;
@@ -31,13 +31,27 @@ const BUCKETS = [
   { label: "90-100", min: 90, max: 100.001 },
 ];
 
+function latestByStudentSubject<
+  T extends { studentId: string; subjectId: string; gradedAt: Date }
+>(grades: T[]): T[] {
+  const latest = new Map<string, T>();
+  for (const g of grades) {
+    const key = `${g.studentId}::${g.subjectId}`;
+    const prev = latest.get(key);
+    if (!prev || g.gradedAt.getTime() > prev.gradedAt.getTime()) {
+      latest.set(key, g);
+    }
+  }
+  return [...latest.values()];
+}
+
 export async function getDashboardStats(): Promise<DashboardStats> {
   const [students, grades, uploads, subjects] = await Promise.all([
     prisma.student.findMany({ select: { id: true, firstName: true, lastName: true, className: true } }),
     prisma.grade.findMany({
       include: {
         student: { select: { id: true, firstName: true, lastName: true, className: true } },
-        subject: { select: { name: true, color: true } },
+        subject: { select: { name: true, color: true, isImportant: true } },
       },
     }),
     prisma.uploadSession.findMany({
@@ -47,10 +61,11 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     prisma.subject.findMany(),
   ]);
 
+  const effectiveGrades = latestByStudentSubject(grades);
   const totalStudents = students.length;
-  const totalGrades = grades.length;
+  const totalGrades = effectiveGrades.length;
   const classAverage =
-    totalGrades === 0 ? 0 : grades.reduce((s, g) => s + g.value, 0) / totalGrades;
+    totalGrades === 0 ? 0 : effectiveGrades.reduce((s, g) => s + g.value, 0) / totalGrades;
 
   let highest: DashboardStats["highestGrade"] = null;
   let lowest: DashboardStats["lowestGrade"] = null;
@@ -58,7 +73,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   let fail = 0;
   const distribution = BUCKETS.map((b) => ({ bucket: b.label, count: 0 }));
 
-  for (const g of grades) {
+  for (const g of effectiveGrades) {
     const label = `${g.student.firstName} ${g.student.lastName}`;
     if (!highest || g.value > highest.value)
       highest = { value: g.value, student: label, subject: g.subject.name };
@@ -74,7 +89,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   // per-student averages
   const byStudent = new Map<string, { sum: number; count: number; student: (typeof students)[0] }>();
-  for (const g of grades) {
+  for (const g of effectiveGrades) {
     const rec = byStudent.get(g.studentId) ?? { sum: 0, count: 0, student: g.student };
     rec.sum += g.value;
     rec.count += 1;
@@ -94,9 +109,17 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     .slice(0, 5);
 
   // per-subject averages
-  const bySubject = new Map<string, { sum: number; count: number; color: string }>();
-  for (const g of grades) {
-    const rec = bySubject.get(g.subject.name) ?? { sum: 0, count: 0, color: g.subject.color };
+  const bySubject = new Map<
+    string,
+    { sum: number; count: number; color: string; isImportant: boolean }
+  >();
+  for (const g of effectiveGrades) {
+    const rec = bySubject.get(g.subject.name) ?? {
+      sum: 0,
+      count: 0,
+      color: g.subject.color,
+      isImportant: g.subject.isImportant,
+    };
     rec.sum += g.value;
     rec.count += 1;
     bySubject.set(g.subject.name, rec);
@@ -105,6 +128,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     subject,
     avg: rec.sum / rec.count,
     color: rec.color,
+    isImportant: rec.isImportant,
   }));
 
   return {
@@ -130,11 +154,25 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   };
 }
 
-export function computeStudentStats(grades: { value: number; subject: { name: string } }[]) {
-  const count = grades.length;
-  const avg = count ? grades.reduce((s, g) => s + g.value, 0) / count : 0;
-  const max = count ? Math.max(...grades.map((g) => g.value)) : 0;
-  const min = count ? Math.min(...grades.map((g) => g.value)) : 0;
+export function computeStudentStats(
+  grades: { value: number; subject: { name: string }; gradedAt?: Date }[]
+) {
+  const latestBySubject = new Map<string, { value: number; gradedAt?: Date }>();
+  for (const g of grades) {
+    const prev = latestBySubject.get(g.subject.name);
+    if (!prev) {
+      latestBySubject.set(g.subject.name, { value: g.value, gradedAt: g.gradedAt });
+      continue;
+    }
+    if (!g.gradedAt || !prev.gradedAt || g.gradedAt.getTime() >= prev.gradedAt.getTime()) {
+      latestBySubject.set(g.subject.name, { value: g.value, gradedAt: g.gradedAt });
+    }
+  }
+  const latestValues = [...latestBySubject.values()].map((v) => v.value);
+  const count = latestValues.length;
+  const avg = count ? latestValues.reduce((s, v) => s + v, 0) / count : 0;
+  const max = count ? Math.max(...latestValues) : 0;
+  const min = count ? Math.min(...latestValues) : 0;
 
   const bySubject = new Map<string, number[]>();
   for (const g of grades) {

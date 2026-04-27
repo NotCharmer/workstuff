@@ -46,11 +46,12 @@ model Student {
 }
 
 model Subject {
-  id     String  @id @default(cuid())
-  name   String  @unique
-  code   String? @unique
-  color  String  @default("#6366f1")
-  grades Grade[]
+  id          String  @id @default(cuid())
+  name        String  @unique
+  code        String? @unique
+  color       String  @default("#6366f1")
+  isImportant Boolean @default(false)
+  grades      Grade[]
 }
 
 model Grade {
@@ -102,4 +103,20 @@ model UploadSession {
 
   uploader User?   @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
   grades   Grade[]
+}
+
+model TimetableEntry {
+  id        String   @id @default(cuid())
+  className String
+  dayOfWeek String
+  startTime String
+  endTime   String
+  subject   String
+  teacher   String?
+  room      String?
+  source    String   @default("IMPORT")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([className, dayOfWeek, startTime])
 }

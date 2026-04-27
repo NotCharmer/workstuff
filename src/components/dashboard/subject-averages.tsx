@@ -1,12 +1,13 @@
 "use client";
 
+import { Star } from "lucide-react";
 import { formatGrade } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
 
 export function SubjectAverages({
   items,
 }: {
-  items: { subject: string; avg: number; color: string }[];
+  items: { subject: string; avg: number; color: string; isImportant: boolean }[];
 }) {
   if (!items.length) {
     return (
@@ -29,6 +30,9 @@ export function SubjectAverages({
                 style={{ backgroundColor: s.color }}
               />
               {s.subject}
+              {s.isImportant && (
+                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
+              )}
             </span>
             <span className="tabular-nums text-muted-foreground">
               {formatGrade(s.avg)}

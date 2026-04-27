@@ -46,7 +46,7 @@ async function fetchStudents(params: SearchParams): Promise<StudentCardData[]> {
     },
     include: {
       grades: {
-        include: { subject: { select: { name: true } } },
+        include: { subject: { select: { name: true, isImportant: true } } },
         orderBy: { gradedAt: "desc" },
       },
     },
@@ -54,10 +54,22 @@ async function fetchStudents(params: SearchParams): Promise<StudentCardData[]> {
   });
 
   const mapped: StudentCardData[] = students.map((s) => {
-    const count = s.grades.length;
-    const avg =
-      count === 0 ? null : s.grades.reduce((a, g) => a + g.value, 0) / count;
-    const subjects = Array.from(new Set(s.grades.map((g) => g.subject.name)));
+    const latestBySubject = new Map<string, number>();
+    for (const g of s.grades) {
+      if (!latestBySubject.has(g.subject.name)) {
+        latestBySubject.set(g.subject.name, g.value);
+      }
+    }
+    const effectiveGrades = [...latestBySubject.values()];
+    const count = effectiveGrades.length;
+    const avg = count === 0 ? null : effectiveGrades.reduce((a, v) => a + v, 0) / count;
+    const subjects = Array.from(
+      new Set(
+        s.grades
+          .map((g) => (g.subject.isImportant ? `★ ${g.subject.name}` : g.subject.name))
+          .sort((a, b) => Number(b.startsWith("★")) - Number(a.startsWith("★")))
+      )
+    );
     const latest = s.grades[0]
       ? { value: s.grades[0].value, subject: s.grades[0].subject.name }
       : null;

@@ -12,6 +12,7 @@ import {
   Calendar,
   Trophy,
   AlertTriangle,
+  Star,
 } from "lucide-react";
 
 import { prisma } from "@/lib/db";
@@ -30,17 +31,17 @@ import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GradeTrend } from "@/components/students/grade-trend";
 import { NotesPanel } from "@/components/students/notes-panel";
+import { GradeManager } from "@/components/students/grade-manager";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import {
   avatarGradient,
   formatGrade,
-  gradeBadgeTone,
   gradeColor,
   initials,
 } from "@/lib/utils";
 import { computeStudentStats } from "@/lib/stats";
 import { he } from "@/lib/i18n/he";
-import { dateLocaleHe, gradeSourceHe } from "@/lib/i18n";
+import { dateLocaleHe } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +55,7 @@ export default async function StudentDetailPage({
     include: {
       grades: {
         include: { subject: true },
-        orderBy: { gradedAt: "asc" },
+        orderBy: { gradedAt: "desc" },
       },
       notes: {
         include: { author: { select: { name: true } } },
@@ -66,7 +67,11 @@ export default async function StudentDetailPage({
   if (!student) notFound();
 
   const stats = computeStudentStats(
-    student.grades.map((g) => ({ value: g.value, subject: { name: g.subject.name } }))
+    student.grades.map((g) => ({
+      value: g.value,
+      subject: { name: g.subject.name },
+      gradedAt: g.gradedAt,
+    }))
   );
 
   const trendData = student.grades.map((g) => ({
@@ -79,9 +84,9 @@ export default async function StudentDetailPage({
   if (student.grades.length >= 4) {
     const half = Math.floor(student.grades.length / 2);
     const firstAvg =
-      student.grades.slice(0, half).reduce((s, g) => s + g.value, 0) / half;
+      [...student.grades].reverse().slice(0, half).reduce((s, g) => s + g.value, 0) / half;
     const secondAvg =
-      student.grades.slice(half).reduce((s, g) => s + g.value, 0) /
+      [...student.grades].reverse().slice(half).reduce((s, g) => s + g.value, 0) /
       (student.grades.length - half);
     if (secondAvg - firstAvg > 2) trend = "up";
     else if (firstAvg - secondAvg > 2) trend = "down";
@@ -99,6 +104,16 @@ export default async function StudentDetailPage({
 
   const name = `${student.firstName} ${student.lastName}`;
   const enrolledStr = format(student.createdAt, "PP", { locale: dateLocaleHe });
+  const uniqueSubjects = new Map<string, { id: string; name: string; isImportant: boolean }>();
+  for (const g of student.grades) {
+    if (!uniqueSubjects.has(g.subject.id)) {
+      uniqueSubjects.set(g.subject.id, {
+        id: g.subject.id,
+        name: g.subject.name,
+        isImportant: g.subject.isImportant,
+      });
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -244,7 +259,13 @@ export default async function StudentDetailPage({
                   .map((s) => (
                     <div key={s.subject}>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="truncate font-medium">{s.subject}</span>
+                        <span className="inline-flex items-center gap-1.5 truncate font-medium">
+                          {s.subject}
+                          {student.grades.find((g) => g.subject.name === s.subject)?.subject
+                            .isImportant && (
+                            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
+                          )}
+                        </span>
                         <span className={`tabular-nums ${gradeColor(s.avg)}`}>
                           {formatGrade(s.avg)}
                         </span>
@@ -275,7 +296,23 @@ export default async function StudentDetailPage({
               <CardTitle>{he.studentDetail.gradeHistory}</CardTitle>
               <CardDescription>{he.studentDetail.gradeHistoryDesc}</CardDescription>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="space-y-4">
+              <GradeManager
+                studentId={student.id}
+                initialSubjects={[...uniqueSubjects.values()]}
+                initialGrades={student.grades.map((g) => ({
+                  id: g.id,
+                  value: g.value,
+                  source: g.source,
+                  gradedAt: g.gradedAt.toISOString(),
+                  subject: {
+                    id: g.subject.id,
+                    name: g.subject.name,
+                    color: g.subject.color,
+                    isImportant: g.subject.isImportant,
+                  },
+                }))}
+              />
               {student.grades.length === 0 ? (
                 <div className="p-6">
                   <EmptyState
@@ -284,51 +321,7 @@ export default async function StudentDetailPage({
                     description={he.studentDetail.noGradesInTableDesc}
                   />
                 </div>
-              ) : (
-                <div className="overflow-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/50 text-start text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      <tr>
-                        <th className="px-5 py-3">{he.studentDetail.tableSubject}</th>
-                        <th className="px-5 py-3">{he.studentDetail.tableSource}</th>
-                        <th className="px-5 py-3">{he.studentDetail.tableDate}</th>
-                        <th className="px-5 py-3 text-end">{he.studentDetail.tableGrade}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...student.grades].reverse().map((g, i) => (
-                        <tr
-                          key={g.id}
-                          className={i % 2 === 0 ? "bg-card" : "bg-muted/10"}
-                        >
-                          <td className="px-5 py-3">
-                            <span className="inline-flex items-center gap-2">
-                              <span
-                                className="h-2 w-2 rounded-full"
-                                style={{ backgroundColor: g.subject.color }}
-                              />
-                              <span className="font-medium">{g.subject.name}</span>
-                            </span>
-                          </td>
-                          <td className="px-5 py-3">
-                            <Badge variant="outline" className="text-[11px]">
-                              {gradeSourceHe(g.source)}
-                            </Badge>
-                          </td>
-                          <td className="px-5 py-3 text-muted-foreground">
-                            {format(g.gradedAt, "PP", { locale: dateLocaleHe })}
-                          </td>
-                          <td className="px-5 py-3 text-end">
-                            <Badge variant={gradeBadgeTone(g.value) as any}>
-                              {formatGrade(g.value)}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              ) : null}
             </CardContent>
           </Card>
         </TabsContent>

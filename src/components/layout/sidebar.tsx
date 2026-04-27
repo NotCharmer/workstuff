@@ -9,6 +9,7 @@ import {
   LineChart,
   Settings,
   GraduationCap,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
@@ -17,6 +18,7 @@ const NAV = [
   { href: "/dashboard", label: he.nav.dashboard, icon: LayoutDashboard },
   { href: "/students", label: he.nav.students, icon: Users },
   { href: "/upload", label: he.nav.upload, icon: UploadCloud },
+  { href: "/timetable", label: he.nav.timetable, icon: CalendarDays },
   { href: "/analytics", label: he.nav.analytics, icon: LineChart },
   { href: "/settings", label: he.nav.settings, icon: Settings },
 ];
