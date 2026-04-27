@@ -43,13 +43,15 @@ export const ToggleImportantSubjectSchema = z.object({
   isImportant: z.boolean(),
 });
 
+const RequiredTrimmedStringSchema = z.string().trim().min(1);
+
 export const TimetableRowSchema = z.object({
   id: z.string(),
-  className: z.string().min(1),
-  dayOfWeek: z.string().min(1),
-  startTime: z.string().min(1),
-  endTime: z.string().min(1),
-  subject: z.string().min(1),
+  className: RequiredTrimmedStringSchema,
+  dayOfWeek: RequiredTrimmedStringSchema,
+  startTime: RequiredTrimmedStringSchema,
+  endTime: RequiredTrimmedStringSchema,
+  subject: RequiredTrimmedStringSchema,
   teacher: z.string().optional().nullable(),
   room: z.string().optional().nullable(),
   confidence: z.number().min(0).max(1).optional(),
