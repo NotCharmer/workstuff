@@ -7,6 +7,13 @@ import { he } from "@/lib/i18n/he";
 
 export const runtime = "nodejs";
 
+const TARGET_SUBJECT_TOKENS = ["פייתון", "מיתוג", "python"];
+
+function isTargetSubject(subject: string): boolean {
+  const normalized = subject.toLowerCase();
+  return TARGET_SUBJECT_TOKENS.some((token) => normalized.includes(token.toLowerCase()));
+}
+
 /**
  * Persist a reviewed batch.
  * We do the matching work here so the UI doesn't need to know about
@@ -24,8 +31,18 @@ export async function POST(req: Request) {
     );
   }
   const { fileName, rows, avgConfidence, imagePath } = parsed.data;
+  const allowedStudents = new Set(
+    rows.filter((row) => isTargetSubject(row.subject)).map((row) => row.studentName.trim())
+  );
+  const filteredRows = rows.filter((row) => allowedStudents.has(row.studentName.trim()));
+  if (filteredRows.length === 0) {
+    return NextResponse.json(
+      { ok: false, error: "לא נמצאו תלמידים עם ציון בפייתון או במיתוג לשמירה." },
+      { status: 400 }
+    );
+  }
 
-  const cleanedExternalIds = rows
+  const cleanedExternalIds = filteredRows
     .map((r) => r.externalId?.toString().trim() ?? "")
     .filter((v) => v.length > 0);
   const uniqueExternalIds = new Set(cleanedExternalIds);
@@ -41,7 +58,7 @@ export async function POST(req: Request) {
       fileName,
       imagePath,
       status: "SAVED",
-      rowCount: rows.length,
+      rowCount: filteredRows.length,
       avgConfidence,
       uploaderId: user.id,
     },
@@ -54,7 +71,7 @@ export async function POST(req: Request) {
   } = { saved: 0, studentsCreated: 0, subjectsCreated: 0 };
 
   // Small batch, sequential inserts are fine and keep the logic legible.
-  for (const row of rows) {
+  for (const row of filteredRows) {
     const [firstName, ...rest] = row.studentName.trim().split(/\s+/);
     const lastName = rest.join(" ") || "(unknown)";
 

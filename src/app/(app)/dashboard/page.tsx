@@ -29,7 +29,7 @@ import { SubjectAverages } from "@/components/dashboard/subject-averages";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-import { getDashboardStats } from "@/lib/stats";
+import { getDashboardStats, type AverageMode } from "@/lib/stats";
 import { getCurrentUser } from "@/lib/auth";
 import { formatGrade, initials, percent } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
@@ -41,9 +41,18 @@ function firstName(name: string) {
   return name.trim().split(/\s+/)[0] ?? name;
 }
 
-export default async function DashboardPage() {
+type SearchParams = {
+  avg?: "all" | "important";
+};
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
   const user = await getCurrentUser();
-  const s = await getDashboardStats();
+  const averageMode: AverageMode = searchParams.avg === "all" ? "all" : "important";
+  const s = await getDashboardStats(averageMode);
 
   const passRate = percent(s.passCount, s.passCount + s.failCount);
 
@@ -60,6 +69,19 @@ export default async function DashboardPage() {
           <p className="mt-1 text-sm text-muted-foreground">{he.dashboard.subtitle}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <form className="flex items-center gap-2">
+            <select
+              name="avg"
+              defaultValue={averageMode}
+              className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-soft focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="important">{he.dashboard.avgImportant}</option>
+              <option value="all">{he.dashboard.avgAll}</option>
+            </select>
+            <Button type="submit" variant="secondary">
+              {he.students.filter}
+            </Button>
+          </form>
           <Button asChild>
             <Link href="/upload">
               <UploadCloud className="h-4 w-4" />
@@ -86,7 +108,11 @@ export default async function DashboardPage() {
           label={he.dashboard.classAverage}
           value={s.totalGrades ? formatGrade(s.classAverage) : "—"}
           hint={
-            s.totalGrades ? he.dashboard.acrossGrades : he.dashboard.uploadToBegin
+            s.totalGrades
+              ? averageMode === "important"
+                ? he.dashboard.acrossImportant
+                : he.dashboard.acrossGrades
+              : he.dashboard.uploadToBegin
           }
           icon={TrendingUp}
           tone="info"

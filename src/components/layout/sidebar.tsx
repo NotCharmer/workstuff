@@ -10,6 +10,9 @@ import {
   Settings,
   GraduationCap,
   CalendarDays,
+  ListChecks,
+  BookOpen,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
@@ -19,6 +22,9 @@ const NAV = [
   { href: "/students", label: he.nav.students, icon: Users },
   { href: "/upload", label: he.nav.upload, icon: UploadCloud },
   { href: "/timetable", label: he.nav.timetable, icon: CalendarDays },
+  { href: "/daily-tasks", label: he.nav.dailyTasks, icon: ListChecks },
+  { href: "/private-lessons", label: he.nav.privateLessons, icon: BookOpen },
+  { href: "/daily-summary", label: he.nav.dailySummary, icon: Sparkles },
   { href: "/analytics", label: he.nav.analytics, icon: LineChart },
   { href: "/settings", label: he.nav.settings, icon: Settings },
 ];

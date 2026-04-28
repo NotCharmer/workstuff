@@ -15,15 +15,49 @@ type SearchParams = {
   q?: string;
   class?: string;
   risk?: "low" | "high";
+  avg?: "all" | "important";
 };
+
+const IMPORTANT_SUBJECT_TOKENS = [
+  "פייתון",
+  "python",
+  "חשמל ואלקטרוניקה",
+  "פיסיקה",
+  "פיזיקה",
+  "physics",
+  "מיתוג",
+  "מתמטיקה",
+  "mathematics",
+  "math",
+] as const;
+
+const REQUIRED_SUBJECT_FILTER = {
+  OR: [
+    { subject: { name: { contains: "פייתון" } } },
+    { subject: { name: { contains: "מיתוג" } } },
+    { subject: { name: { contains: "python" } } },
+    { subject: { name: { contains: "Python" } } },
+  ],
+} as const;
+
+function isImportantSubject(subjectName: string): boolean {
+  const normalized = subjectName.toLowerCase();
+  return IMPORTANT_SUBJECT_TOKENS.some((token) => normalized.includes(token.toLowerCase()));
+}
 
 async function fetchStudents(params: SearchParams): Promise<StudentCardData[]> {
   const q = params.q?.trim();
   const className = params.class?.trim();
+  const averageMode: "all" | "important" = params.avg === "all" ? "all" : "important";
 
   const students = await prisma.student.findMany({
     where: {
       AND: [
+        {
+          grades: {
+            some: REQUIRED_SUBJECT_FILTER,
+          },
+        },
         q
           ? {
               OR: [
@@ -60,9 +94,17 @@ async function fetchStudents(params: SearchParams): Promise<StudentCardData[]> {
         latestBySubject.set(g.subject.name, g.value);
       }
     }
-    const effectiveGrades = [...latestBySubject.values()];
-    const count = effectiveGrades.length;
-    const avg = count === 0 ? null : effectiveGrades.reduce((a, v) => a + v, 0) / count;
+    const importantGrades = [...latestBySubject.entries()]
+      .filter(([subjectName]) => isImportantSubject(subjectName))
+      .map(([, value]) => value);
+    const allGrades = [...latestBySubject.values()];
+    const importantAvg =
+      importantGrades.length === 0
+        ? null
+        : importantGrades.reduce((a, v) => a + v, 0) / importantGrades.length;
+    const allAvg =
+      allGrades.length === 0 ? null : allGrades.reduce((a, v) => a + v, 0) / allGrades.length;
+    const avg = averageMode === "important" ? importantAvg : allAvg;
     const subjects = Array.from(
       new Set(
         s.grades
@@ -70,6 +112,10 @@ async function fetchStudents(params: SearchParams): Promise<StudentCardData[]> {
           .sort((a, b) => Number(b.startsWith("★")) - Number(a.startsWith("★")))
       )
     );
+    const highScoreSubjects = [...latestBySubject.entries()]
+      .filter(([, value]) => value > 85)
+      .map(([subjectName]) => subjectName)
+      .sort((a, b) => a.localeCompare(b, "he"));
     const latest = s.grades[0]
       ? { value: s.grades[0].value, subject: s.grades[0].subject.name }
       : null;
@@ -80,9 +126,11 @@ async function fetchStudents(params: SearchParams): Promise<StudentCardData[]> {
       externalId: s.externalId,
       className: s.className,
       avatarHue: s.avatarHue,
-      gradeCount: count,
+      gradeCount: latestBySubject.size,
       average: avg,
+      averageMode,
       subjects,
+      highScoreSubjects,
       latestGrade: latest,
     };
   });
@@ -127,7 +175,7 @@ export default async function StudentsPage({
         </Button>
       </div>
 
-      <form className="grid grid-cols-1 gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-card md:grid-cols-[1fr_200px_auto]">
+      <form className="grid grid-cols-1 gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-card md:grid-cols-[1fr_200px_220px_auto]">
         <div className="relative">
           <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -149,6 +197,15 @@ export default async function StudentsPage({
               {c}
             </option>
           ))}
+        </select>
+
+        <select
+          name="avg"
+          defaultValue={searchParams.avg ?? "important"}
+          className="h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-soft focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="important">{he.students.avgImportant}</option>
+          <option value="all">{he.students.avgAll}</option>
         </select>
 
         <div className="flex gap-2">

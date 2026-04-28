@@ -22,7 +22,21 @@ export type DashboardStats = {
   subjectAverages: { subject: string; avg: number; color: string; isImportant: boolean }[];
 };
 
+export type AverageMode = "all" | "important";
+
 const PASS_CUTOFF = 60;
+const IMPORTANT_SUBJECT_TOKENS = [
+  "פייתון",
+  "python",
+  "חשמל ואלקטרוניקה",
+  "פיסיקה",
+  "פיזיקה",
+  "physics",
+  "מיתוג",
+  "מתמטיקה",
+  "mathematics",
+  "math",
+] as const;
 const BUCKETS = [
   { label: "0-59", min: 0, max: 59.999 },
   { label: "60-69", min: 60, max: 69.999 },
@@ -30,6 +44,11 @@ const BUCKETS = [
   { label: "80-89", min: 80, max: 89.999 },
   { label: "90-100", min: 90, max: 100.001 },
 ];
+
+function isImportantSubjectName(subjectName: string): boolean {
+  const normalized = subjectName.toLowerCase();
+  return IMPORTANT_SUBJECT_TOKENS.some((token) => normalized.includes(token.toLowerCase()));
+}
 
 function latestByStudentSubject<
   T extends { studentId: string; subjectId: string; gradedAt: Date }
@@ -45,7 +64,7 @@ function latestByStudentSubject<
   return [...latest.values()];
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
+export async function getDashboardStats(mode: AverageMode = "important"): Promise<DashboardStats> {
   const [students, grades, uploads, subjects] = await Promise.all([
     prisma.student.findMany({ select: { id: true, firstName: true, lastName: true, className: true } }),
     prisma.grade.findMany({
@@ -61,7 +80,11 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     prisma.subject.findMany(),
   ]);
 
-  const effectiveGrades = latestByStudentSubject(grades);
+  const latestGrades = latestByStudentSubject(grades);
+  const effectiveGrades =
+    mode === "important"
+      ? latestGrades.filter((g) => isImportantSubjectName(g.subject.name))
+      : latestGrades;
   const totalStudents = students.length;
   const totalGrades = effectiveGrades.length;
   const classAverage =

@@ -24,8 +24,9 @@ model User {
   // UserRole: "STAFF" | "ADMIN"
   role      String   @default("STAFF")
   createdAt DateTime @default(now())
-  notes     Note[]
-  uploads   UploadSession[]
+  notes      Note[]
+  uploads    UploadSession[]
+  dailyTasks DailyTask[]
 }
 
 model Student {
@@ -38,11 +39,28 @@ model Student {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  grades Grade[]
-  notes  Note[]
+  grades         Grade[]
+  notes          Note[]
+  privateLessons PrivateLesson[]
 
   @@index([lastName, firstName])
   @@index([className])
+}
+
+model PrivateLesson {
+  id              String   @id @default(cuid())
+  studentId       String
+  date            String   // ISO date: "YYYY-MM-DD"
+  durationMinutes Int      @default(60)
+  subject         String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([date])
 }
 
 model Subject {
@@ -103,6 +121,34 @@ model UploadSession {
 
   uploader User?   @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
   grades   Grade[]
+}
+
+model DailyTask {
+  id        String   @id @default(cuid())
+  authorId  String?
+  title     String
+  done      Boolean  @default(false)
+  date      String   // ISO date: "YYYY-MM-DD"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([date])
+}
+
+model ClassVisit {
+  id              String   @id @default(cuid())
+  date            String   // ISO date: "YYYY-MM-DD"
+  className       String
+  subject         String
+  durationMinutes Int      @default(60)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([date])
+  @@index([className])
 }
 
 model TimetableEntry {
