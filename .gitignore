@@ -8,5 +8,6 @@ dist
 coverage
 .vercel
 next-env.d.ts
+dev.db
 prisma/*.db
 public/uploads

@@ -1,19 +1,14 @@
 // Gradely schema
 // --------------------------------------------------------------
-// SQLite by default (zero-infra, single-file, ideal for a school-local
-// deployment). SQLite does not support Prisma enums, so enum-like fields
-// are stored as plain strings with literal unions enforced at the
-// application layer (see src/lib/enums.ts).
-//
-// To use Postgres instead, change `provider` to "postgresql", restore the
-// enum blocks, and point DATABASE_URL at your server.
+// PostgreSQL for production/hosting (Neon, Railway, etc.). Enum-like fields
+// are plain strings enforced in application code (see src/lib/enums.ts).
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
