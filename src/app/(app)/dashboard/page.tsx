@@ -29,7 +29,7 @@ import { SubjectAverages } from "@/components/dashboard/subject-averages";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-import { getDashboardStats, type AverageMode } from "@/lib/stats";
+import { getDashboardStats, type AverageMode, type GradeAggregationMode } from "@/lib/stats";
 import { getCurrentUser } from "@/lib/auth";
 import { formatGrade, initials, percent } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
@@ -41,18 +41,23 @@ function firstName(name: string) {
   return name.trim().split(/\s+/)[0] ?? name;
 }
 
-type SearchParams = {
-  avg?: "all" | "important";
-};
+function pickSearchParam(v: string | string[] | undefined): string | undefined {
+  if (Array.isArray(v)) return v[0];
+  return v;
+}
 
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: SearchParams;
+  searchParams: Record<string, string | string[] | undefined>;
 }) {
   const user = await getCurrentUser();
-  const averageMode: AverageMode = searchParams.avg === "all" ? "all" : "important";
-  const s = await getDashboardStats(averageMode);
+  const averageMode: AverageMode =
+    pickSearchParam(searchParams.avg) === "all" ? "all" : "important";
+  const classRaw = pickSearchParam(searchParams.class)?.trim() || null;
+  const basisRaw = pickSearchParam(searchParams.basis)?.trim().toLowerCase();
+  const gradeAggregation: GradeAggregationMode = basisRaw === "all" ? "all" : "latest";
+  const s = await getDashboardStats(averageMode, classRaw, gradeAggregation);
 
   const passRate = percent(s.passCount, s.passCount + s.failCount);
 
@@ -66,10 +71,30 @@ export default async function DashboardPage({
           <h1 className="font-display text-3xl font-semibold tracking-tight">
             {he.dashboard.title}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{he.dashboard.subtitle}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {s.selectedClassFilter
+              ? he.dashboard.subtitleClassOnly(s.selectedClassFilter)
+              : he.dashboard.subtitle}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <form className="flex items-center gap-2">
+          <form className="flex flex-wrap items-center gap-2" action="/dashboard" method="get">
+            <label className="sr-only" htmlFor="dash-class">
+              {he.students.allClasses}
+            </label>
+            <select
+              id="dash-class"
+              name="class"
+              defaultValue={s.selectedClassFilter ?? ""}
+              className="h-10 min-w-[10rem] rounded-lg border border-input bg-background px-3 text-sm shadow-soft focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">{he.students.allClasses}</option>
+              {s.availableClasses.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
             <select
               name="avg"
               defaultValue={averageMode}
@@ -77,6 +102,18 @@ export default async function DashboardPage({
             >
               <option value="important">{he.dashboard.avgImportant}</option>
               <option value="all">{he.dashboard.avgAll}</option>
+            </select>
+            <label className="sr-only" htmlFor="dash-basis">
+              {he.dashboard.gradeBasisFilterLabel}
+            </label>
+            <select
+              id="dash-basis"
+              name="basis"
+              defaultValue={gradeAggregation}
+              className="h-10 min-w-[11rem] rounded-lg border border-input bg-background px-3 text-sm shadow-soft focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="latest">{he.dashboard.gradeBasisLatest}</option>
+              <option value="all">{he.dashboard.gradeBasisAll}</option>
             </select>
             <Button type="submit" variant="secondary">
               {he.students.filter}
@@ -109,9 +146,14 @@ export default async function DashboardPage({
           value={s.totalGrades ? formatGrade(s.classAverage) : "—"}
           hint={
             s.totalGrades
-              ? averageMode === "important"
-                ? he.dashboard.acrossImportant
-                : he.dashboard.acrossGrades
+              ? [
+                  averageMode === "important"
+                    ? he.dashboard.acrossImportant
+                    : he.dashboard.acrossGrades,
+                  s.selectedGradeAggregation === "latest"
+                    ? he.dashboard.gradeBasisShortLatest
+                    : he.dashboard.gradeBasisShortAll,
+                ].join(" · ")
               : he.dashboard.uploadToBegin
           }
           icon={TrendingUp}
@@ -147,7 +189,11 @@ export default async function DashboardPage({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <CardTitle>{he.dashboard.gradeDistribution}</CardTitle>
-                <CardDescription>{he.dashboard.distributionDesc}</CardDescription>
+                <CardDescription>
+                  {s.selectedGradeAggregation === "latest"
+                    ? he.dashboard.distributionDescLatest
+                    : he.dashboard.distributionDescAll}
+                </CardDescription>
               </div>
               <Badge variant="info" className="gap-1">
                 <Activity className="h-3 w-3" />
@@ -211,12 +257,19 @@ export default async function DashboardPage({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card>
-          <CardHeader>
-            <CardTitle>{he.dashboard.subjectAverages}</CardTitle>
-            <CardDescription>{he.dashboard.subjectAveragesDesc}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <SubjectAverages items={s.subjectAverages} />
+            <CardHeader>
+              <CardTitle>{he.dashboard.subjectAverages}</CardTitle>
+              <CardDescription>
+                {s.selectedGradeAggregation === "latest"
+                  ? he.dashboard.subjectAveragesDescLatest
+                  : he.dashboard.subjectAveragesDescAll}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SubjectAverages
+                items={s.subjectAverages}
+                gradeAggregation={s.selectedGradeAggregation}
+              />
           </CardContent>
         </Card>
 

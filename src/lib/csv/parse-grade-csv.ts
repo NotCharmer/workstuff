@@ -256,9 +256,111 @@ function parseComplexSadinCsv(
   };
 }
 
+function inferClassFromFilename(fileName: string): string | null {
+  const stem = fileName.replace(/\.csv$/i, "");
+  const m = /(?:^|[_\-\s])(y[a-z])(\d+)(?:$|[_\-\s])/i.exec(stem);
+  if (!m) return null;
+  const map: Record<string, string> = {
+    ya: "יא",
+    yb: "יב",
+  };
+  const prefix = map[m[1].toLowerCase()];
+  if (!prefix) return null;
+  return `${prefix}${m[2]}`;
+}
+
+function parseWideGradeCsv(
+  text: string,
+  fileName: string
+): { ok: true; result: ParseResult } | { ok: false; error: string } {
+  const parsed = Papa.parse<string[]>(text, {
+    header: false,
+    skipEmptyLines: "greedy",
+  });
+
+  const grid = (parsed.data as string[][]).filter(
+    (row) => Array.isArray(row) && row.some((c) => (c ?? "").toString().trim().length > 0)
+  );
+  if (grid.length < 2) return { ok: false, error: he.api.csvEmpty };
+
+  const headerRow = (grid[0] ?? []).map((c) => (c ?? "").toString().replace(/^\uFEFF/, "").trim());
+
+  const matchAlias = (cell: string, aliases: readonly string[]): boolean => {
+    const n = norm(cell);
+    if (!n) return false;
+    return aliases.some((a) => norm(a) === n);
+  };
+
+  const nameCol = headerRow.findIndex((h) => matchAlias(h, ALIASES.studentName));
+  if (nameCol < 0) return { ok: false, error: he.api.csvInvalidHeaders };
+
+  const externalIdCol = headerRow.findIndex((h) => matchAlias(h, ALIASES.externalId));
+  const classCol = headerRow.findIndex((h) => matchAlias(h, ALIASES.className));
+  const reservedCols = new Set(
+    [nameCol, externalIdCol, classCol].filter((c) => c >= 0)
+  );
+
+  const subjectByCol = new Map<number, string>();
+  for (let c = 0; c < headerRow.length; c++) {
+    if (reservedCols.has(c)) continue;
+    const cleaned = cleanSubjectName(headerRow[c] ?? "");
+    if (!cleaned || looksGenericHeader(cleaned)) continue;
+    subjectByCol.set(c, cleaned);
+  }
+  if (subjectByCol.size === 0) {
+    return { ok: false, error: he.api.csvInvalidHeaders };
+  }
+
+  const fileClass = inferClassFromFilename(fileName);
+  const rows: ExtractedRow[] = [];
+  const warnings: string[] = [];
+
+  for (let r = 1; r < grid.length; r++) {
+    const row = grid[r] ?? [];
+    const studentName = (row[nameCol] ?? "").toString().trim();
+    if (!studentName) continue;
+
+    const externalId =
+      externalIdCol >= 0 ? (row[externalIdCol] ?? "").toString().trim() || null : null;
+    const rowClassName =
+      classCol >= 0 ? (row[classCol] ?? "").toString().trim() || null : null;
+    const className = rowClassName ?? fileClass;
+
+    for (const [col, subject] of subjectByCol) {
+      const raw = (row[col] ?? "").toString().trim().replace(",", ".");
+      if (!raw) continue;
+      const grade = Number.parseFloat(raw);
+      if (Number.isNaN(grade)) continue;
+      rows.push({
+        id: randomUUID(),
+        studentName,
+        subject,
+        grade: Math.min(100, Math.max(0, grade)),
+        className,
+        externalId,
+        confidence: 0.99,
+      });
+    }
+  }
+
+  if (rows.length === 0) {
+    return { ok: false, error: he.api.csvNoDataRows };
+  }
+
+  return {
+    ok: true,
+    result: {
+      rows,
+      avgConfidence: 0.99,
+      rawText: text.slice(0, 8000),
+      warnings,
+    },
+  };
+}
+
 export function parseGradeCsv(
   buffer: Buffer,
-  _fileName: string
+  fileName: string
 ):
   | { ok: true; result: ParseResult }
   | { ok: false; error: string } {
@@ -283,11 +385,15 @@ export function parseGradeCsv(
 
   const fields = parsed.meta.fields?.filter(Boolean) as string[] | undefined;
   if (!fields?.length) {
+    const wide = parseWideGradeCsv(text, fileName);
+    if (wide.ok) return wide;
     return parseComplexSadinCsv(text);
   }
 
   const col = mapHeaders(fields);
   if (!col) {
+    const wide = parseWideGradeCsv(text, fileName);
+    if (wide.ok) return wide;
     return parseComplexSadinCsv(text);
   }
 

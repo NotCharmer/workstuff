@@ -1,6 +1,17 @@
 import { prisma } from "./db";
 
+export type AverageMode = "all" | "important";
+
+/** Dashboard only: how to collapse grades before computing aggregates */
+export type GradeAggregationMode = "latest" | "all";
+
 export type DashboardStats = {
+  /** Distinct non-empty class names in the DB (for filter UI), sorted */
+  availableClasses: string[];
+  /** Echo of validated class filter (null = all classes) */
+  selectedClassFilter: string | null;
+  /** Echo of grade aggregation (latest exam vs all rows) */
+  selectedGradeAggregation: GradeAggregationMode;
   totalStudents: number;
   totalGrades: number;
   classAverage: number;
@@ -19,10 +30,20 @@ export type DashboardStats = {
   }[];
   topStudents: { id: string; name: string; avg: number; className: string | null }[];
   attentionStudents: { id: string; name: string; avg: number; className: string | null }[];
-  subjectAverages: { subject: string; avg: number; color: string; isImportant: boolean }[];
+  subjectAverages: {
+    subject: string;
+    avg: number;
+    color: string;
+    isImportant: boolean;
+    students: {
+      id: string;
+      name: string;
+      className: string | null;
+      grade: number;
+      gradeId: string;
+    }[];
+  }[];
 };
-
-export type AverageMode = "all" | "important";
 
 const PASS_CUTOFF = 60;
 const IMPORTANT_SUBJECT_TOKENS = [
@@ -64,8 +85,12 @@ function latestByStudentSubject<
   return [...latest.values()];
 }
 
-export async function getDashboardStats(mode: AverageMode = "important"): Promise<DashboardStats> {
-  const [students, grades, uploads, subjects] = await Promise.all([
+export async function getDashboardStats(
+  mode: AverageMode = "important",
+  classFilter?: string | null,
+  gradeAggregation: GradeAggregationMode = "latest"
+): Promise<DashboardStats> {
+  const [students, grades, uploads] = await Promise.all([
     prisma.student.findMany({ select: { id: true, firstName: true, lastName: true, className: true } }),
     prisma.grade.findMany({
       include: {
@@ -77,15 +102,34 @@ export async function getDashboardStats(mode: AverageMode = "important"): Promis
       orderBy: { createdAt: "desc" },
       take: 6,
     }),
-    prisma.subject.findMany(),
   ]);
 
-  const latestGrades = latestByStudentSubject(grades);
+  const availableClasses = [
+    ...new Set(
+      students.map((s) => s.className?.trim()).filter((c): c is string => Boolean(c))
+    ),
+  ].sort((a, b) => a.localeCompare(b, "he"));
+
+  const normalizedFilter =
+    classFilter?.trim() && availableClasses.includes(classFilter.trim()) ? classFilter.trim() : null;
+
+  const studentIdsInScope = normalizedFilter
+    ? new Set(students.filter((s) => s.className === normalizedFilter).map((s) => s.id))
+    : null;
+
+  const scopedRaw = studentIdsInScope
+    ? grades.filter((g) => studentIdsInScope.has(g.studentId))
+    : grades;
+
+  const collapsed =
+    gradeAggregation === "latest" ? latestByStudentSubject(scopedRaw) : scopedRaw;
+
   const effectiveGrades =
     mode === "important"
-      ? latestGrades.filter((g) => isImportantSubjectName(g.subject.name))
-      : latestGrades;
-  const totalStudents = students.length;
+      ? collapsed.filter((g) => isImportantSubjectName(g.subject.name))
+      : collapsed;
+
+  const totalStudents = studentIdsInScope ? studentIdsInScope.size : students.length;
   const totalGrades = effectiveGrades.length;
   const classAverage =
     totalGrades === 0 ? 0 : effectiveGrades.reduce((s, g) => s + g.value, 0) / totalGrades;
@@ -134,7 +178,18 @@ export async function getDashboardStats(mode: AverageMode = "important"): Promis
   // per-subject averages
   const bySubject = new Map<
     string,
-    { sum: number; count: number; color: string; isImportant: boolean }
+    {
+      sum: number;
+      count: number;
+      color: string;
+      isImportant: boolean;
+      students: {
+        id: string;
+        name: string;
+        className: string | null;
+        grade: number;
+      }[];
+    }
   >();
   for (const g of effectiveGrades) {
     const rec = bySubject.get(g.subject.name) ?? {
@@ -142,9 +197,17 @@ export async function getDashboardStats(mode: AverageMode = "important"): Promis
       count: 0,
       color: g.subject.color,
       isImportant: g.subject.isImportant,
+      students: [],
     };
     rec.sum += g.value;
     rec.count += 1;
+    rec.students.push({
+      id: g.student.id,
+      name: `${g.student.firstName} ${g.student.lastName}`,
+      className: g.student.className,
+      grade: g.value,
+      gradeId: g.id,
+    });
     bySubject.set(g.subject.name, rec);
   }
   const subjectAverages = [...bySubject.entries()].map(([subject, rec]) => ({
@@ -152,9 +215,13 @@ export async function getDashboardStats(mode: AverageMode = "important"): Promis
     avg: rec.sum / rec.count,
     color: rec.color,
     isImportant: rec.isImportant,
+    students: [...rec.students].sort((a, b) => b.grade - a.grade),
   }));
 
   return {
+    availableClasses,
+    selectedClassFilter: normalizedFilter,
+    selectedGradeAggregation: gradeAggregation,
     totalStudents,
     totalGrades,
     classAverage,
@@ -191,11 +258,18 @@ export function computeStudentStats(
       latestBySubject.set(g.subject.name, { value: g.value, gradedAt: g.gradedAt });
     }
   }
-  const latestValues = [...latestBySubject.values()].map((v) => v.value);
+  const latestEntries = [...latestBySubject.entries()];
+  const latestValues = latestEntries.map(([, v]) => v.value);
   const count = latestValues.length;
   const avg = count ? latestValues.reduce((s, v) => s + v, 0) / count : 0;
   const max = count ? Math.max(...latestValues) : 0;
   const min = count ? Math.min(...latestValues) : 0;
+  const maxSubject = count
+    ? (latestEntries.find(([, v]) => v.value === max)?.[0] ?? null)
+    : null;
+  const minSubject = count
+    ? (latestEntries.find(([, v]) => v.value === min)?.[0] ?? null)
+    : null;
 
   const bySubject = new Map<string, number[]>();
   for (const g of grades) {
@@ -211,5 +285,5 @@ export function computeStudentStats(
     min: Math.min(...values),
   }));
 
-  return { count, avg, max, min, subjectBreakdown };
+  return { count, avg, max, min, maxSubject, minSubject, subjectBreakdown };
 }

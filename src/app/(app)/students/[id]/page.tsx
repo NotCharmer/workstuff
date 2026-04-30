@@ -12,7 +12,6 @@ import {
   Calendar,
   Trophy,
   AlertTriangle,
-  Star,
 } from "lucide-react";
 
 import { prisma } from "@/lib/db";
@@ -32,13 +31,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { GradeTrend } from "@/components/students/grade-trend";
 import { NotesPanel } from "@/components/students/notes-panel";
 import { GradeManager } from "@/components/students/grade-manager";
+import { SubjectBreakdownList } from "@/components/students/subject-breakdown-list";
 import { MetricCard } from "@/components/dashboard/metric-card";
-import {
-  avatarGradient,
-  formatGrade,
-  gradeColor,
-  initials,
-} from "@/lib/utils";
+import { avatarGradient, formatGrade, initials } from "@/lib/utils";
 import { computeStudentStats } from "@/lib/stats";
 import { he } from "@/lib/i18n/he";
 import { dateLocaleHe } from "@/lib/i18n";
@@ -114,6 +109,34 @@ export default async function StudentDetailPage({
       });
     }
   }
+
+  const subjectMeta = new Map<string, { color: string; isImportant: boolean }>();
+  const subjectGrades = new Map<
+    string,
+    { id: string; value: number; gradedAt: string; source: string }[]
+  >();
+  for (const g of student.grades) {
+    if (!subjectMeta.has(g.subject.name)) {
+      subjectMeta.set(g.subject.name, {
+        color: g.subject.color,
+        isImportant: g.subject.isImportant,
+      });
+    }
+    const list = subjectGrades.get(g.subject.name) ?? [];
+    list.push({
+      id: g.id,
+      value: g.value,
+      gradedAt: g.gradedAt.toISOString(),
+      source: g.source,
+    });
+    subjectGrades.set(g.subject.name, list);
+  }
+  const subjectBreakdownItems = stats.subjectBreakdown.map((s) => ({
+    ...s,
+    color: subjectMeta.get(s.subject)?.color ?? null,
+    isImportant: subjectMeta.get(s.subject)?.isImportant ?? false,
+    grades: subjectGrades.get(s.subject) ?? [],
+  }));
 
   return (
     <div className="space-y-6">
@@ -197,14 +220,22 @@ export default async function StudentDetailPage({
         <MetricCard
           label={he.studentDetail.highest}
           value={stats.count ? formatGrade(stats.max) : "—"}
-          hint={he.studentDetail.bestSingle}
+          hint={
+            stats.count && stats.maxSubject
+              ? he.studentDetail.bestSingleSubject(stats.maxSubject)
+              : he.studentDetail.bestSingle
+          }
           icon={Trophy}
           tone="success"
         />
         <MetricCard
           label={he.studentDetail.lowest}
           value={stats.count ? formatGrade(stats.min) : "—"}
-          hint={he.studentDetail.worstSingle}
+          hint={
+            stats.count && stats.minSubject
+              ? he.studentDetail.worstSingleSubject(stats.minSubject)
+              : he.studentDetail.worstSingle
+          }
           icon={AlertTriangle}
           tone="warning"
         />
@@ -250,41 +281,8 @@ export default async function StudentDetailPage({
                 <CardTitle>{he.studentDetail.subjectBreakdown}</CardTitle>
                 <CardDescription>{he.studentDetail.subjectBreakdownDesc}</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {stats.subjectBreakdown.length === 0 && (
-                  <p className="text-sm text-muted-foreground">{he.studentDetail.noSubjects}</p>
-                )}
-                {stats.subjectBreakdown
-                  .sort((a, b) => b.avg - a.avg)
-                  .map((s) => (
-                    <div key={s.subject}>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="inline-flex items-center gap-1.5 truncate font-medium">
-                          {s.subject}
-                          {student.grades.find((g) => g.subject.name === s.subject)?.subject
-                            .isImportant && (
-                            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
-                          )}
-                        </span>
-                        <span className={`tabular-nums ${gradeColor(s.avg)}`}>
-                          {formatGrade(s.avg)}
-                        </span>
-                      </div>
-                      <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-primary/80 transition-[width] duration-700"
-                          style={{ width: `${Math.min(100, s.avg)}%` }}
-                        />
-                      </div>
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        {he.studentDetail.gradeCountLine(
-                          s.count,
-                          formatGrade(s.min),
-                          formatGrade(s.max)
-                        )}
-                      </p>
-                    </div>
-                  ))}
+              <CardContent>
+                <SubjectBreakdownList items={subjectBreakdownItems} />
               </CardContent>
             </Card>
           </div>

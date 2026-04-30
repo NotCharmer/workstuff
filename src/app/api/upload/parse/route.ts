@@ -1,17 +1,11 @@
 import { NextResponse } from "next/server";
 import { parseGradeCsv, isCsvUpload } from "@/lib/csv/parse-grade-csv";
 import { parseGradeImage } from "@/lib/ocr";
-import type { ParseResult, ExtractedRow } from "@/lib/ocr/types";
+import type { ParseResult } from "@/lib/ocr/types";
 import { he } from "@/lib/i18n/he";
+import { isTargetSubject } from "@/lib/upload/target-subjects";
 
 export const runtime = "nodejs";
-
-const TARGET_SUBJECT_TOKENS = ["פייתון", "מיתוג", "python"];
-
-function isTargetSubject(subject: string): boolean {
-  const normalized = subject.toLowerCase();
-  return TARGET_SUBJECT_TOKENS.some((token) => normalized.includes(token.toLowerCase()));
-}
 
 function keepOnlyTargetStudents(result: ParseResult): ParseResult {
   const allowedStudents = new Set(
@@ -43,7 +37,14 @@ export async function POST(req: Request) {
     }
     const filtered = keepOnlyTargetStudents(out.result);
     if (filtered.rows.length === 0) {
-      return NextResponse.json({ ok: false, error: "לא נמצאו תלמידים עם ציון בפייתון או במיתוג בקובץ." }, { status: 400 });
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "לא נמצאו תלמידים עם ציון בפייתון, במיתוג או בפרוייקט גמר במערכות אלקטרוניות בקובץ.",
+        },
+        { status: 400 }
+      );
     }
     return NextResponse.json({ ok: true, fileName: file.name, ...filtered });
   }
@@ -67,7 +68,14 @@ export async function POST(req: Request) {
   const result = await parseGradeImage({ name: file.name, buffer, mime: file.type });
   const filtered = keepOnlyTargetStudents(result);
   if (filtered.rows.length === 0) {
-    return NextResponse.json({ ok: false, error: "לא נמצאו תלמידים עם ציון בפייתון או במיתוג בקובץ." }, { status: 400 });
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "לא נמצאו תלמידים עם ציון בפייתון, במיתוג או בפרוייקט גמר במערכות אלקטרוניות בקובץ.",
+      },
+      { status: 400 }
+    );
   }
   return NextResponse.json({ ok: true, fileName: file.name, ...filtered });
 }

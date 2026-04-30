@@ -59,6 +59,8 @@ export const he = {
     welcome: (firstName: string) => `שלום, ${firstName}`,
     title: "לוח בקרה",
     subtitle: "הנה מצב הכיתות שלך עכשיו.",
+    subtitleClassOnly: (className: string) =>
+      `נתונים לכיתה ${className} בלבד — ממוצעים, התפלגות ורשימות לפי ציונים באותה כיתה.`,
     uploadGrades: "העלאת ציונים",
     viewStudents: "רשימת תלמידים",
     totalStudents: "תלמידים",
@@ -73,14 +75,34 @@ export const he = {
     lowest: "הציון הנמוך",
     noDataYet: "אין עדיין נתונים",
     gradeDistribution: "התפלגות ציונים",
-    distributionDesc: "איך הציונים מפוזרים בקהל.",
+    distributionDesc: "איך הציונים מפוזרים בקהל (לפי הבחירה: מבחן אחרון או כל הציונים).",
+    distributionDescLatest: "לפי ציון אחד לכל תלמיד בכל מקצוע — המבחן/רישום העדכני ביותר.",
+    distributionDescAll: "כל רישום ציון נספר בנפרד (כולל כמה ציונים לאותו תלמיד באותו מקצוע).",
+    gradeBasisLatest: "מבחן אחרון (לכל מקצוע)",
+    gradeBasisAll: "ממוצע כולל (כל הציונים)",
+    gradeBasisShortLatest: "לפי מבחן אחרון לכל מקצוע",
+    gradeBasisShortAll: "לפי כל רישומי הציונים",
+    gradeBasisFilterLabel: "חישוב ממוצע: מבחן אחרון או כל הציונים",
     passFail: "עובר / נכשל",
     passUsing60: "עם קו חיתוך 60.",
     passRate: "אחוז עוברים",
     passing: "עוברים",
     failing: "נכשלים",
     subjectAverages: "ממוצעים לפי מקצוע",
-    subjectAveragesDesc: "איפה הקבוצה חזקה.",
+    subjectAveragesDesc: "איפה הקבוצה חזקה. לחצו על מקצוע לראות פירוט תלמידים.",
+    subjectAveragesDescLatest:
+      "ממוצעים לפי ציון המבחן האחרון בכל מקצוע (תלמיד אחד = ציון אחד למקצוע).",
+    subjectAveragesDescAll:
+      "ממוצעים כשכל רישום ציון נכנס לחישוב — כולל כמה ציונים מאותו תלמיד באותו מקצוע.",
+    subjectBreakdownTitle: (subject: string) => `${subject} — תלמידים`,
+    subjectBreakdownDesc: (count: number, avg: string) =>
+      count === 1
+        ? `תלמיד אחד תורם לממוצע ${avg}.`
+        : `${count} תלמידים תורמים לממוצע ${avg}.`,
+    subjectBreakdownDescAllRows: (rows: number, avg: string) =>
+      `${rows} רישומי ציון · ממוצע ${avg} (אותו תלמיד עשוי להופיע יותר מפעם אחת).`,
+    subjectBreakdownEmpty: "אין תלמידים שמרכיבים את הממוצע הזה.",
+    viewStudent: "כרטיס תלמיד",
     topPerformers: "מצטיינים",
     topPerformersDesc: "הממוצעים הכוללים הגבוהים ביותר.",
     noStudentsYet: "אין עדיין תלמידים.",
@@ -166,12 +188,22 @@ export const he = {
     noGrades: "אין עדיין ציונים",
     noGradesDesc: "העלו טבלת ציונים כדי לעקוב אחרי התלמיד.",
     subjectBreakdown: "פילוח לפי מקצוע",
-    subjectBreakdownDesc: "ממוצע לכל מקצוע.",
+    subjectBreakdownDesc:
+      "ממוצע חשבוני של כל הציונים שנרשמו בכל מקצוע. לחצו על מקצוע לראות את כל הרישומים.",
     noSubjects: "אין מקצועות עדיין.",
     gradeCountLine: (count: number, min: string, max: string) =>
       count === 1
         ? `ציון אחד · טווח ${min}–${max}`
         : `${count} ציונים · טווח ${min}–${max}`,
+    subjectGradesTitle: (subject: string) => `${subject} — ציונים`,
+    subjectGradesDesc: (count: number, avg: string) =>
+      count === 1
+        ? `ציון אחד · ממוצע בשורה ${avg} (ממוצע של כל הרישומים באותו מקצוע).`
+        : `${count} ציונים ברישום · בשורה מוצג ממוצע ${avg} של כל הציונים באותו מקצוע.`,
+    subjectRange: (min: string, max: string) => `טווח ${min}–${max}`,
+    subjectAvg: (avg: string) => `ממוצע ${avg}`,
+    bestSingleSubject: (subject: string) => `${subject} · הציון הטוב ביותר`,
+    worstSingleSubject: (subject: string) => `${subject} · הציון הנמוך ביותר`,
     gradeHistory: "היסטוריית ציונים",
     gradeHistoryDesc: "מהחדש לישן. ניתן גם להוסיף או להסיר ציון ידני.",
     addGrade: "הוספת ציון",
@@ -280,7 +312,13 @@ export const he = {
     metricThisMonth: "החודש",
     metricThisMonthHint: "שיעורים שנרשמו בחודש הנוכחי",
     formTitle: "הוספת שיעור פרטי",
-    formDesc: "בחרו תלמיד, מועד, משך ומידע נוסף.",
+    formDesc: "בחרו כיתה לצמצום רשימה, הקלידו שם לבחירת תלמיד, מועד, משך ומידע נוסף.",
+    fieldClass: "כיתה",
+    fieldClassAll: "כל הכיתות",
+    fieldClassNone: "ללא כיתה",
+    studentSearchPh: "הקלידו שם או שם משפחה…",
+    noMatchingStudents: "אין תלמידים שמתאימים לחיפוש",
+    selectStudentFromList: "בחרו תלמיד מהרשימה או השלימו חיפוש",
     fieldStudent: "תלמיד",
     fieldDate: "תאריך",
     fieldDuration: "משך",

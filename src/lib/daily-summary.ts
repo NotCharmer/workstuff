@@ -29,7 +29,7 @@ export const DEFAULT_SUMMARY_CONFIG: DailySummaryConfig = {
   programTitle: "סיכום יום מסלול השוחרות חיל הקשר, התקשוב והסייבר",
   schoolLine: "קריית החינוך אורט רחובות",
   greetingLine: "יום מעולה🌅",
-  team: ["גל", "שמעון", "איתי", "נגה", "אנה", "מיקי", "ארטימס"],
+  team: ["גל", "שמעון", "איתי", "נגה", "אנה", "מיקי", "יובל", "בן", "ארטימס"],
 };
 
 const FALLBACK_CLASS = "ללא כיתה";
