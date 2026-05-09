@@ -188,6 +188,7 @@ export async function getDashboardStats(
         name: string;
         className: string | null;
         grade: number;
+        gradeId: string;
       }[];
     }
   >();

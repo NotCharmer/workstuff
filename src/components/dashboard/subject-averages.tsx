@@ -123,7 +123,7 @@ export function SubjectAverages({
                 </p>
               ) : (
                 <ul className="-mx-2 max-h-[60vh] divide-y divide-border/60 overflow-y-auto">
-                  {active.students.map((stu) => (
+                  {active.students.map((stu, i) => (
                     <li key={stu.gradeId}>
                       <Link
                         href={`/students/${stu.id}`}
