@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { getAuthSecret } from "@/lib/auth-secret";
 
 const PUBLIC_PATHS = ["/login"];
-const AUTH_SECRET =
-  process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "dev-only-secret-change-me";
 
 export default async function middleware(req: NextRequest) {
   const { nextUrl } = req;
   const pathname = nextUrl.pathname;
-  const token = await getToken({ req, secret: AUTH_SECRET });
+  const authSecret = getAuthSecret();
+  const token = authSecret ? await getToken({ req, secret: authSecret }) : null;
   const isAuthed = Boolean(token);
   const isAuthApi = pathname.startsWith("/api/auth");
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

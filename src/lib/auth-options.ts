@@ -3,13 +3,12 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { USER_ROLES, type UserRole } from "@/lib/enums";
+import { getAuthSecret } from "@/lib/auth-secret";
 
 const roleSet = new Set<string>(USER_ROLES);
-const AUTH_SECRET =
-  process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "dev-only-secret-change-me";
 
 export const authOptions: NextAuthOptions = {
-  secret: AUTH_SECRET,
+  secret: getAuthSecret(),
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [
