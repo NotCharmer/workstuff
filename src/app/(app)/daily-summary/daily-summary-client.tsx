@@ -37,7 +37,7 @@ type ClassVisit = {
   notes: string | null;
 };
 
-const STORAGE_KEY = "gradely:daily-summary-config";
+const STORAGE_KEY = "lebronator:daily-summary-config";
 const DURATION_OPTIONS = [60, 120, 180, 300] as const;
 
 function todayStr() {

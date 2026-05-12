@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { ClassVisitSchema } from "@/lib/validators";
 import { he } from "@/lib/i18n/he";
 
 export async function GET(req: Request) {
+  const user = await getCurrentUser();
   const { searchParams } = new URL(req.url);
   const date = searchParams.get("date") ?? undefined;
   const className = searchParams.get("className") ?? undefined;
   const visits = await prisma.classVisit.findMany({
     where: {
+      branchId: user.branchId,
       ...(date ? { date } : {}),
       ...(className ? { className } : {}),
     },
@@ -18,6 +21,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const user = await getCurrentUser();
   const body = await req.json().catch(() => null);
   const parsed = ClassVisitSchema.safeParse(body);
   if (!parsed.success) {
@@ -28,6 +32,7 @@ export async function POST(req: Request) {
   }
   const visit = await prisma.classVisit.create({
     data: {
+      branchId: user.branchId,
       date: parsed.data.date,
       className: parsed.data.className.trim(),
       subject: parsed.data.subject.trim(),

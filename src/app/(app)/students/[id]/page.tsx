@@ -31,12 +31,14 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { GradeTrend } from "@/components/students/grade-trend";
 import { NotesPanel } from "@/components/students/notes-panel";
 import { GradeManager } from "@/components/students/grade-manager";
+import { StudentGenderSelect } from "@/components/students/student-gender-select";
 import { SubjectBreakdownList } from "@/components/students/subject-breakdown-list";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { avatarGradient, formatGrade, initials } from "@/lib/utils";
 import { computeStudentStats } from "@/lib/stats";
 import { he } from "@/lib/i18n/he";
 import { dateLocaleHe } from "@/lib/i18n";
+import { getCurrentUserOrRedirect } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -45,8 +47,9 @@ export default async function StudentDetailPage({
 }: {
   params: { id: string };
 }) {
-  const student = await prisma.student.findUnique({
-    where: { id: params.id },
+  const user = await getCurrentUserOrRedirect();
+  const student = await prisma.student.findFirst({
+    where: { id: params.id, branchId: user.branchId },
     include: {
       grades: {
         include: { subject: true },
@@ -205,6 +208,10 @@ export default async function StudentDetailPage({
                 {he.studentDetail.needsAttention}
               </Badge>
             )}
+            <StudentGenderSelect
+              studentId={student.id}
+              initialGender={student.gender === "FEMALE" ? "FEMALE" : "MALE"}
+            />
           </div>
         </CardContent>
       </Card>

@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUserOrRedirect } from "@/lib/auth";
 import {
   Card,
   CardContent,
@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
+import { AdminPanel } from "@/components/settings/admin-panel";
 import {
   getOcrProviderName,
   getOpenAIApiKey,
@@ -20,7 +21,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const user = await getCurrentUser();
+  const user = await getCurrentUserOrRedirect();
   const ocrProvider = getOcrProviderName();
   const hasKey = Boolean(getOpenAIApiKey());
   const model = getOpenAIOcrModel();
@@ -46,6 +47,9 @@ export default async function SettingsPage() {
           <div>
             <p className="font-semibold">{user.name}</p>
             <p className="text-sm text-muted-foreground">{user.email}</p>
+            {user.branchName && (
+              <p className="text-xs text-muted-foreground">Branch: {user.branchName}</p>
+            )}
           </div>
           <Badge variant="info" className="ms-auto">
             {user.role}
@@ -127,6 +131,10 @@ export default async function SettingsPage() {
           ))}
         </CardContent>
       </Card>
+
+      {(user.role === "ADMIN" || user.role === "BRANCH_MANAGER") && (
+        <AdminPanel role={user.role} />
+      )}
     </div>
   );
 }

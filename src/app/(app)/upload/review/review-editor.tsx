@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 import type { ParseResult, ExtractedRow } from "@/lib/ocr/types";
 import { he } from "@/lib/i18n/he";
 
-const SESSION_KEY = "gradely:pending-review";
+const SESSION_KEY = "lebronator:pending-review";
 
 type Pending = ParseResult & { fileName: string };
 

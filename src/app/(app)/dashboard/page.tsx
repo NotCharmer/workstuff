@@ -30,7 +30,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 import { getDashboardStats, type AverageMode, type GradeAggregationMode } from "@/lib/stats";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUserOrRedirect } from "@/lib/auth";
 import { formatGrade, initials, percent } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
 import { dateLocaleHe, uploadStatusHe } from "@/lib/i18n";
@@ -51,13 +51,13 @@ export default async function DashboardPage({
 }: {
   searchParams: Record<string, string | string[] | undefined>;
 }) {
-  const user = await getCurrentUser();
+  const user = await getCurrentUserOrRedirect();
   const averageMode: AverageMode =
     pickSearchParam(searchParams.avg) === "all" ? "all" : "important";
   const classRaw = pickSearchParam(searchParams.class)?.trim() || null;
   const basisRaw = pickSearchParam(searchParams.basis)?.trim().toLowerCase();
   const gradeAggregation: GradeAggregationMode = basisRaw === "all" ? "all" : "latest";
-  const s = await getDashboardStats(averageMode, classRaw, gradeAggregation);
+  const s = await getDashboardStats(averageMode, classRaw, gradeAggregation, user.branchId);
 
   const passRate = percent(s.passCount, s.passCount + s.failCount);
 

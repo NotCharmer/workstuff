@@ -3,12 +3,12 @@
  */
 export const he = {
   meta: {
-    title: "Gradely — ניהול ציונים",
+    title: "Lebronator — ניהול ציונים",
     description:
       "העלאת טבלת ציונים, בדיקת חילוץ ומעקב אחרי תלמידים. מיועד לצוות בית הספר.",
   },
   app: {
-    name: "Gradely",
+    name: "Lebronator",
     tagline: "ניהול לימודי",
   },
   proTip: {
@@ -152,6 +152,17 @@ export const he = {
       `למחוק את ${name}? הפעולה תמחק גם ציונים והערות שקשורים אליו.`,
     deleteSuccess: "התלמיד נמחק",
     deleteError: "לא ניתן למחוק את התלמיד כרגע.",
+    updateError: "לא ניתן לעדכן את התלמיד כרגע.",
+  },
+  studentGender: {
+    label: "מגדר לשימוש בסיכום היומי",
+    help: "ישפיע על ניסוח שוחר/שוחרת בסיכום היומי.",
+    unset: "לא הוגדר",
+    male: "זכר (שוחר)",
+    female: "נקבה (שוחרת)",
+    saving: "שומר…",
+    saved: "המגדר עודכן",
+    saveFailed: "שמירת המגדר נכשלה",
   },
   studentCard: {
     average: "ממוצע",
@@ -324,6 +335,8 @@ export const he = {
     fieldDuration: "משך",
     durationOption: (hours: number) =>
       hours === 1 ? "שעה" : hours === 2 ? "שעתיים" : `${hours} שעות`,
+    durationReinforcement4: "4 שעות",
+    durationReinforcement6: "שש שעות",
     fieldSubject: "מקצוע (אופציונלי)",
     fieldSubjectPh: "מתמטיקה, פייתון…",
     fieldNotes: "הערות (אופציונלי)",

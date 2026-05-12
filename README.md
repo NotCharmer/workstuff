@@ -1,4 +1,4 @@
-# Gradely
+# Lebronator
 
 A polished web app for school staff to **upload a grades file (CSV is parsed directly) or a photo/PDF (OCR), review the extracted rows, and build rich student profiles with notes and analytics.**
 

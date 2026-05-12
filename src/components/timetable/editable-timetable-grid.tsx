@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { he } from "@/lib/i18n/he";
 import { cn } from "@/lib/utils";
+import { DAY_CANONICAL_ORDER, canonicalDay, dayOrderOf } from "@/lib/timetable/days";
 
 type Entry = {
   id: string;
@@ -30,16 +31,7 @@ type Entry = {
   room: string | null;
 };
 
-const DAY_ORDER: Record<string, number> = {
-  ראשון: 1,
-  שני: 2,
-  שלישי: 3,
-  רביעי: 4,
-  חמישי: 5,
-  שישי: 6,
-  שבת: 7,
-};
-const DAY_OPTIONS = Object.keys(DAY_ORDER);
+const DAY_OPTIONS = [...DAY_CANONICAL_ORDER];
 
 function toMinutes(time: string): number {
   const m = time.match(/(\d{1,2}):(\d{2})/);
@@ -48,6 +40,14 @@ function toMinutes(time: string): number {
   const minute = Number.parseInt(m[2], 10);
   if (Number.isNaN(hour) || Number.isNaN(minute)) return Number.MAX_SAFE_INTEGER;
   return hour * 60 + minute;
+}
+
+// Zero-pad H:M or H:MM forms to HH:MM so <input type="time"> and the strict
+// isValidTime check work the same on imported and freshly entered values.
+function padTime(value: string): string {
+  const m = value.trim().match(/^(\d{1,2}):(\d{1,2})$/);
+  if (!m) return value.trim();
+  return `${m[1].padStart(2, "0")}:${m[2].padStart(2, "0")}`;
 }
 
 function serializeRows(rows: Entry[]): string {
@@ -63,7 +63,7 @@ function serializeRows(rows: Entry[]): string {
         room: (r.room ?? "").trim(),
       }))
       .sort((a, b) => {
-        const dayDiff = (DAY_ORDER[a.dayOfWeek] ?? 99) - (DAY_ORDER[b.dayOfWeek] ?? 99);
+        const dayDiff = dayOrderOf(a.dayOfWeek) - dayOrderOf(b.dayOfWeek);
         if (dayDiff !== 0) return dayDiff;
         const startDiff = toMinutes(a.startTime) - toMinutes(b.startTime);
         if (startDiff !== 0) return startDiff;
@@ -72,6 +72,18 @@ function serializeRows(rows: Entry[]): string {
         return a.subject.localeCompare(b.subject);
       })
   );
+}
+
+// Normalize legacy DB rows (English day names, "יום ראשון", "8:15", etc.) into
+// the canonical Hebrew + zero-padded form the grid expects. This makes the
+// grid forgiving of older imports that pre-date the parser fixes.
+function normalizeEntry(e: Entry): Entry {
+  return {
+    ...e,
+    dayOfWeek: canonicalDay(e.dayOfWeek),
+    startTime: padTime(e.startTime),
+    endTime: padTime(e.endTime),
+  };
 }
 
 function isValidTime(value: string): boolean {
@@ -88,8 +100,9 @@ export function EditableTimetableGrid({
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [rows, setRows] = useState<Entry[]>(initialRows);
-  const [baselineRows, setBaselineRows] = useState<Entry[]>(initialRows);
+  const normalizedInitial = useMemo(() => initialRows.map(normalizeEntry), [initialRows]);
+  const [rows, setRows] = useState<Entry[]>(normalizedInitial);
+  const [baselineRows, setBaselineRows] = useState<Entry[]>(normalizedInitial);
   const currentSnapshot = useMemo(() => serializeRows(rows), [rows]);
   const baselineSnapshot = useMemo(() => serializeRows(baselineRows), [baselineRows]);
   const hasUnsavedChanges = currentSnapshot !== baselineSnapshot;
@@ -112,7 +125,7 @@ export function EditableTimetableGrid({
   const days = useMemo(
     () =>
       Array.from(new Set(rows.map((r) => r.dayOfWeek))).sort(
-        (a, b) => (DAY_ORDER[a] ?? 99) - (DAY_ORDER[b] ?? 99)
+        (a, b) => dayOrderOf(a) - dayOrderOf(b)
       ),
     [rows]
   );

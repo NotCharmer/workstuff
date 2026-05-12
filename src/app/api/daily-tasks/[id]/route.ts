@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { PatchDailyTaskSchema } from "@/lib/validators";
 import { he } from "@/lib/i18n/he";
 
@@ -7,6 +8,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
+  const user = await getCurrentUser();
   const body = await req.json().catch(() => null);
   const parsed = PatchDailyTaskSchema.safeParse(body);
   if (!parsed.success) {
@@ -16,9 +18,15 @@ export async function PATCH(
     );
   }
   try {
-    const task = await prisma.dailyTask.update({
-      where: { id: params.id },
+    const updated = await prisma.dailyTask.updateMany({
+      where: { id: params.id, branchId: user.branchId },
       data: parsed.data,
+    });
+    if (updated.count === 0) {
+      return NextResponse.json({ ok: false, error: "המשימה לא נמצאה" }, { status: 404 });
+    }
+    const task = await prisma.dailyTask.findFirst({
+      where: { id: params.id, branchId: user.branchId },
     });
     return NextResponse.json({ ok: true, task });
   } catch {
@@ -30,8 +38,14 @@ export async function DELETE(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
+  const user = await getCurrentUser();
   try {
-    await prisma.dailyTask.delete({ where: { id: params.id } });
+    const deleted = await prisma.dailyTask.deleteMany({
+      where: { id: params.id, branchId: user.branchId },
+    });
+    if (deleted.count === 0) {
+      return NextResponse.json({ ok: false, error: "המשימה לא נמצאה" }, { status: 404 });
+    }
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ ok: false, error: "המשימה לא נמצאה" }, { status: 404 });

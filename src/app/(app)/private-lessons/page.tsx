@@ -11,12 +11,20 @@ import {
 } from "@/components/ui/card";
 import { he } from "@/lib/i18n/he";
 import { PrivateLessonsClient } from "./private-lessons-client";
+import { getCurrentUserOrRedirect } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
+function formatDurationLabel(minutes: number) {
+  if (minutes % 60 === 0) return he.privateLessons.durationOption(minutes / 60);
+  return he.privateLessons.minutesShort(minutes);
+}
+
 export default async function PrivateLessonsPage() {
+  const user = await getCurrentUserOrRedirect();
   const [students, lessons] = await Promise.all([
     prisma.student.findMany({
+      where: { branchId: user.branchId },
       select: {
         id: true,
         firstName: true,
@@ -27,6 +35,7 @@ export default async function PrivateLessonsPage() {
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     }),
     prisma.privateLesson.findMany({
+      where: { student: { branchId: user.branchId } },
       include: {
         student: {
           select: {
@@ -174,7 +183,7 @@ export default async function PrivateLessonsPage() {
                       {he.privateLessons.lessonsCount(s.count)}
                     </span>
                     <span className="hidden sm:inline">
-                      {he.privateLessons.minutesShort(s.minutes)}
+                      {formatDurationLabel(s.minutes)}
                     </span>
                   </div>
                 </li>

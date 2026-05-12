@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { ManualGradeSchema } from "@/lib/validators";
 import { he } from "@/lib/i18n/he";
 
@@ -7,7 +8,10 @@ export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const student = await prisma.student.findUnique({ where: { id: params.id } });
+  const user = await getCurrentUser();
+  const student = await prisma.student.findFirst({
+    where: { id: params.id, branchId: user.branchId },
+  });
   if (!student) {
     return NextResponse.json({ ok: false, error: he.api.studentNotFound }, { status: 404 });
   }
@@ -22,11 +26,14 @@ export async function POST(
   }
 
   const subjectName = parsed.data.subject.trim();
-  let subject = await prisma.subject.findUnique({ where: { name: subjectName } });
+  let subject = await prisma.subject.findFirst({
+    where: { branchId: user.branchId, name: subjectName },
+  });
   if (!subject) {
     const palette = ["#6366f1", "#10b981", "#f59e0b", "#0ea5e9", "#f43f5e", "#8b5cf6", "#14b8a6"];
     subject = await prisma.subject.create({
       data: {
+        branchId: user.branchId,
         name: subjectName,
         color: palette[Math.floor(Math.random() * palette.length)],
       },

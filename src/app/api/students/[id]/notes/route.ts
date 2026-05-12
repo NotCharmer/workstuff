@@ -19,7 +19,9 @@ export async function POST(
     );
   }
 
-  const student = await prisma.student.findUnique({ where: { id: params.id } });
+  const student = await prisma.student.findFirst({
+    where: { id: params.id, branchId: user.branchId },
+  });
   if (!student) {
     return NextResponse.json({ ok: false, error: he.api.studentNotFound }, { status: 404 });
   }

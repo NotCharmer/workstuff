@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { hash } from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -64,28 +65,49 @@ function pick<T>(arr: T[]) {
 }
 
 async function main() {
+  const adminEmail = process.env.DEFAULT_ADMIN_EMAIL?.trim().toLowerCase() || "admin@district.local";
+  const adminName = process.env.DEFAULT_ADMIN_NAME?.trim() || "District Admin";
+  const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD?.trim() || "ChangeMe123!";
+  const adminPasswordHash = await hash(adminPassword, 12);
+
   console.log("→ Resetting data");
   await prisma.note.deleteMany();
   await prisma.grade.deleteMany();
   await prisma.uploadSession.deleteMany();
+  await prisma.privateLesson.deleteMany();
+  await prisma.dailyTask.deleteMany();
+  await prisma.classVisit.deleteMany();
+  await prisma.timetableEntry.deleteMany();
   await prisma.student.deleteMany();
   await prisma.subject.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.branch.deleteMany();
 
-  console.log("→ Seeding staff user");
+  console.log("→ Seeding default branch");
+  const branch = await prisma.branch.create({
+    data: {
+      code: process.env.DEFAULT_BRANCH_CODE?.trim() || "main",
+      name: process.env.DEFAULT_BRANCH_NAME?.trim() || "Main Branch",
+    },
+  });
+
+  console.log("→ Seeding admin user");
   const staff = await prisma.user.upsert({
-    where: { email: "staff@school.local" },
-    update: {},
+    where: { email: adminEmail },
+    update: { branchId: branch.id, name: adminName, role: "ADMIN", passwordHash: adminPasswordHash },
     create: {
-      email: "staff@school.local",
-      name: "צוות בית ספר",
+      email: adminEmail,
+      name: adminName,
       role: "ADMIN",
+      passwordHash: adminPasswordHash,
+      branchId: branch.id,
     },
   });
 
   console.log("→ Seeding subjects");
   const subjectRows = await Promise.all(
     SUBJECTS.map((s) =>
-      prisma.subject.create({ data: { name: s.name, color: s.color } })
+      prisma.subject.create({ data: { name: s.name, color: s.color, branchId: branch.id } })
     )
   );
 
@@ -98,6 +120,7 @@ async function main() {
           lastName,
           className,
           externalId,
+          branchId: branch.id,
           avatarHue: rand(0, 359),
         },
       })
@@ -113,6 +136,7 @@ async function main() {
           status: "SAVED",
           rowCount: rand(6, 14),
           avgConfidence: 0.82 + Math.random() * 0.15,
+          branchId: branch.id,
           uploaderId: staff.id,
           createdAt: new Date(Date.now() - (i + 1) * 1000 * 60 * 60 * 24),
         },

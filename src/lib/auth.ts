@@ -1,39 +1,58 @@
-import { cache } from "react";
-import { prisma } from "./db";
+import { getServerSession } from "next-auth/next";
 import type { UserRole } from "./enums";
-
-/**
- * Single-tenant helper for locally-installed schools.
- *
- * No login screen, no cookies, no sessions — every request is attributed to
- * the same "School Staff" user. The User model is kept so notes and upload
- * sessions still have a real foreign key, and so we can add real auth later
- * without a migration.
- *
- * If you later want per-teacher attribution, swap the body of getCurrentUser
- * for NextAuth / SSO — the rest of the app only consumes CurrentUser.
- */
+import { authOptions } from "./auth-options";
 
 export type CurrentUser = {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  branchId: string | null;
+  branchCode: string | null;
+  branchName: string | null;
 };
 
-const DEFAULT_EMAIL = "staff@school.local";
-const DEFAULT_NAME = "צוות בית ספר";
+export class AuthError extends Error {
+  status: number;
+  constructor(message = "Unauthorized", status = 401) {
+    super(message);
+    this.name = "AuthError";
+    this.status = status;
+  }
+}
 
-export const getCurrentUser = cache(async (): Promise<CurrentUser> => {
-  const user = await prisma.user.upsert({
-    where: { email: DEFAULT_EMAIL },
-    update: {},
-    create: { email: DEFAULT_EMAIL, name: DEFAULT_NAME, role: "ADMIN" },
-  });
+export async function getCurrentUser(): Promise<CurrentUser> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id || !session.user.email || !session.user.name) {
+    throw new AuthError("Unauthorized", 401);
+  }
   return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: (user.role as UserRole) ?? "STAFF",
+    id: session.user.id,
+    email: session.user.email,
+    name: session.user.name,
+    role: session.user.role ?? "STAFF",
+    branchId: session.user.branchId ?? null,
+    branchCode: session.user.branchCode ?? null,
+    branchName: session.user.branchName ?? null,
   };
-});
+}
+
+export async function requireRole(roles: UserRole[]): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!roles.includes(user.role)) {
+    throw new AuthError("Forbidden", 403);
+  }
+  return user;
+}
+
+export async function getCurrentUserOrRedirect(): Promise<CurrentUser> {
+  try {
+    return await getCurrentUser();
+  } catch (error) {
+    if (error instanceof AuthError && error.status === 401) {
+      const { redirect } = await import("next/navigation");
+      redirect("/login");
+    }
+    throw error;
+  }
+}

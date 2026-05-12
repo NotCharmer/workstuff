@@ -1,4 +1,4 @@
-// Gradely schema
+// Lebronator schema
 // --------------------------------------------------------------
 // PostgreSQL for production/hosting (Neon, Railway, etc.). Enum-like fields
 // are plain strings enforced in application code (see src/lib/enums.ts).
@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -16,28 +16,39 @@ model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String
-  // UserRole: "STAFF" | "ADMIN"
+  passwordHash String?
+  branchId  String?
+  // UserRole: "STAFF" | "BRANCH_MANAGER" | "ADMIN"
   role      String   @default("STAFF")
   createdAt DateTime @default(now())
+  branch     Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
   notes      Note[]
   uploads    UploadSession[]
   dailyTasks DailyTask[]
+
+  @@index([branchId])
 }
 
 model Student {
   id         String   @id @default(cuid())
-  externalId String?  @unique // the school's student ID as printed on rosters
+  branchId   String?
+  externalId String?  // the school's student ID as printed on rosters
   firstName  String
   lastName   String
   className  String?  // e.g. "10-B"
+  // StudentGender: "MALE" | "FEMALE"
+  gender     String?
   avatarHue  Int      @default(210) // used to color initials avatar
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  branch         Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
   grades         Grade[]
   notes          Note[]
   privateLessons PrivateLesson[]
 
+  @@unique([branchId, externalId])
+  @@index([branchId])
   @@index([lastName, firstName])
   @@index([className])
 }
@@ -60,11 +71,17 @@ model PrivateLesson {
 
 model Subject {
   id          String  @id @default(cuid())
-  name        String  @unique
-  code        String? @unique
+  branchId    String?
+  name        String
+  code        String?
   color       String  @default("#6366f1")
   isImportant Boolean @default(false)
+  branch      Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
   grades      Grade[]
+
+  @@unique([branchId, name])
+  @@unique([branchId, code])
+  @@index([branchId])
 }
 
 model Grade {
@@ -105,6 +122,7 @@ model Note {
 
 model UploadSession {
   id            String   @id @default(cuid())
+  branchId      String?
   uploaderId    String?
   fileName      String
   imagePath     String?
@@ -114,12 +132,16 @@ model UploadSession {
   avgConfidence Float?
   createdAt     DateTime @default(now())
 
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
   uploader User?   @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
   grades   Grade[]
+
+  @@index([branchId])
 }
 
 model DailyTask {
   id        String   @id @default(cuid())
+  branchId  String?
   authorId  String?
   title     String
   done      Boolean  @default(false)
@@ -127,13 +149,16 @@ model DailyTask {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
   author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
 
+  @@index([branchId])
   @@index([date])
 }
 
 model ClassVisit {
   id              String   @id @default(cuid())
+  branchId        String?
   date            String   // ISO date: "YYYY-MM-DD"
   className       String
   subject         String
@@ -142,12 +167,16 @@ model ClassVisit {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([branchId])
   @@index([date])
   @@index([className])
 }
 
 model TimetableEntry {
   id        String   @id @default(cuid())
+  branchId  String?
   className String
   dayOfWeek String
   startTime String
@@ -159,5 +188,24 @@ model TimetableEntry {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([branchId])
   @@index([className, dayOfWeek, startTime])
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users      User[]
+  students   Student[]
+  subjects   Subject[]
+  uploads    UploadSession[]
+  dailyTasks DailyTask[]
+  classVisits ClassVisit[]
+  timetableEntries TimetableEntry[]
 }

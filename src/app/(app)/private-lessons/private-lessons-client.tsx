@@ -62,6 +62,11 @@ function normalize(s: string) {
   return s.trim().toLowerCase();
 }
 
+function formatDurationLabel(minutes: number) {
+  if (minutes % 60 === 0) return he.privateLessons.durationOption(minutes / 60);
+  return he.privateLessons.minutesShort(minutes);
+}
+
 function matchesStudentQuery(s: StudentOption, query: string) {
   const q = normalize(query);
   if (!q) return true;
@@ -91,7 +96,7 @@ export function PrivateLessonsClient({
 
   const [date, setDate] = useState<string>(todayStr());
   const [duration, setDuration] = useState<string>("60");
-  const DURATION_OPTIONS = [60, 120, 180, 300] as const;
+  const DURATION_OPTIONS = [60, 120, 180, 240, 300, 360] as const;
   const [subject, setSubject] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [filterStudentId, setFilterStudentId] = useState<string>("");
@@ -324,7 +329,7 @@ export function PrivateLessonsClient({
                       </li>
                     ) : (
                       filteredByQuery.map((s) => (
-                        <li key={s.id} role="option">
+                        <li key={s.id} role="option" aria-selected={studentId === s.id}>
                           <button
                             type="button"
                             className={cn(
@@ -365,7 +370,11 @@ export function PrivateLessonsClient({
                 >
                   {DURATION_OPTIONS.map((minutes) => (
                     <option key={minutes} value={String(minutes)}>
-                      {he.privateLessons.durationOption(minutes / 60)}
+                      {minutes === 240
+                        ? he.privateLessons.durationReinforcement4
+                        : minutes === 360
+                          ? he.privateLessons.durationReinforcement6
+                          : he.privateLessons.durationOption(minutes / 60)}
                     </option>
                   ))}
                 </select>
@@ -450,7 +459,7 @@ export function PrivateLessonsClient({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{l.studentName}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {formatDateHe(l.date)} · {he.privateLessons.minutesShort(l.durationMinutes)}
+                      {formatDateHe(l.date)} · {formatDurationLabel(l.durationMinutes)}
                       {l.studentClassName ? ` · ${l.studentClassName}` : ""}
                     </p>
                     {(l.subject || l.notes) && (

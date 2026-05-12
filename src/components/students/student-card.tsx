@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { avatarGradient, formatGrade, gradeBadgeTone, initials } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
 import { StudentDeleteButton } from "@/components/students/student-delete-button";
+import { StudentGenderSelect } from "@/components/students/student-gender-select";
 
 export type StudentCardData = {
   id: string;
@@ -12,6 +13,7 @@ export type StudentCardData = {
   lastName: string;
   externalId: string | null;
   className: string | null;
+  gender: "MALE" | "FEMALE" | null;
   avatarHue: number;
   gradeCount: number;
   average: number | null;
@@ -67,6 +69,9 @@ export function StudentCard({ student }: { student: StudentCardData }) {
       </div>
 
       <div className="relative z-10 mt-4 flex flex-wrap gap-1.5">
+        <div className="w-full">
+          <StudentGenderSelect studentId={student.id} initialGender={student.gender} compact />
+        </div>
         {student.subjects.slice(0, 3).map((s) => (
           <Badge key={s} variant="secondary" className="text-[11px] font-medium">
             {s}

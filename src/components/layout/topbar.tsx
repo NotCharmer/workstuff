@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Moon, Sun, Search, Settings as SettingsIcon, Plus } from "lucide-react";
+import { Moon, Sun, Search, Settings as SettingsIcon, Plus, LogOut } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,7 +20,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
 
-export function TopBar({ user }: { user: { name: string; email: string } }) {
+export function TopBar({
+  user,
+}: {
+  user: { name: string; email: string; branchName?: string | null };
+}) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -80,12 +85,24 @@ export function TopBar({ user }: { user: { name: string; email: string } }) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
+            {user.branchName && (
+              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                {user.branchName}
+              </DropdownMenuLabel>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/settings" className="flex w-full items-center gap-2">
                 <SettingsIcon className="h-4 w-4" />
                 {he.topbar.settings}
               </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              התנתקות
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

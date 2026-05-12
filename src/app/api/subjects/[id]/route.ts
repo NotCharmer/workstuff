@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { ToggleImportantSubjectSchema } from "@/lib/validators";
 import { he } from "@/lib/i18n/he";
 
@@ -8,6 +9,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
+  const user = await getCurrentUser();
   const body = await req.json().catch(() => null);
   const parsed = ToggleImportantSubjectSchema.safeParse(body);
   if (!parsed.success) {
@@ -18,9 +20,15 @@ export async function PATCH(
   }
 
   try {
-    const subject = await prisma.subject.update({
-      where: { id: params.id },
+    const updated = await prisma.subject.updateMany({
+      where: { id: params.id, branchId: user.branchId },
       data: { isImportant: parsed.data.isImportant },
+    });
+    if (updated.count === 0) {
+      return NextResponse.json({ ok: false, error: he.api.subjectNotFound }, { status: 404 });
+    }
+    const subject = await prisma.subject.findFirst({
+      where: { id: params.id, branchId: user.branchId },
       select: { id: true, isImportant: true },
     });
     return NextResponse.json({ ok: true, subject });

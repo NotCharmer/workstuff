@@ -53,6 +53,7 @@ export async function POST(req: Request) {
 
   const upload = await prisma.uploadSession.create({
     data: {
+      branchId: user.branchId,
       fileName,
       imagePath,
       status: "SAVED",
@@ -77,10 +78,10 @@ export async function POST(req: Request) {
     const reliableExternalId = useExternalId && rowExternalId ? rowExternalId : null;
 
     const studentWhere: Prisma.StudentWhereInput = reliableExternalId
-      ? { externalId: reliableExternalId }
+      ? { branchId: user.branchId, externalId: reliableExternalId }
       : row.className
-        ? { firstName, lastName, className: row.className }
-        : { firstName, lastName };
+        ? { branchId: user.branchId, firstName, lastName, className: row.className }
+        : { branchId: user.branchId, firstName, lastName };
 
     let student = await prisma.student.findFirst({ where: studentWhere });
     if (!student) {
@@ -88,8 +89,10 @@ export async function POST(req: Request) {
         data: {
           firstName,
           lastName,
+          branchId: user.branchId,
           externalId: reliableExternalId,
           className: row.className || null,
+          gender: "MALE",
           avatarHue: Math.floor(Math.random() * 360),
         },
       });
@@ -101,11 +104,14 @@ export async function POST(req: Request) {
       });
     }
 
-    let subject = await prisma.subject.findUnique({ where: { name: row.subject } });
+    let subject = await prisma.subject.findFirst({
+      where: { branchId: user.branchId, name: row.subject },
+    });
     if (!subject) {
       const palette = ["#6366f1", "#10b981", "#f59e0b", "#0ea5e9", "#f43f5e", "#8b5cf6", "#14b8a6"];
       subject = await prisma.subject.create({
         data: {
+          branchId: user.branchId,
           name: row.subject,
           color: palette[Math.floor(Math.random() * palette.length)],
         },

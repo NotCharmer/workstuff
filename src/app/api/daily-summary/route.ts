@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import {
   DEFAULT_SUMMARY_CONFIG,
   buildDailySummary,
@@ -8,6 +9,7 @@ import {
 } from "@/lib/daily-summary";
 
 export async function GET(req: Request) {
+  const user = await getCurrentUser();
   const { searchParams } = new URL(req.url);
   const date = searchParams.get("date");
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -24,25 +26,29 @@ export async function GET(req: Request) {
 
   const [privateLessons, classVisits] = await Promise.all([
     prisma.privateLesson.findMany({
-      where: { date },
+      where: { date, student: { branchId: user.branchId } },
       include: {
         student: {
-          select: { firstName: true, lastName: true, className: true },
+          select: { firstName: true, lastName: true, className: true, gender: true },
         },
       },
       orderBy: { createdAt: "asc" },
     }),
     prisma.classVisit.findMany({
-      where: { date },
+      where: { date, branchId: user.branchId },
       orderBy: { createdAt: "asc" },
     }),
   ]);
+
+  const toGender = (value: string | null | undefined): "MALE" | "FEMALE" | null =>
+    value === "MALE" || value === "FEMALE" ? value : null;
 
   const events: DailySummaryEvent[] = [
     ...privateLessons.map((l) => ({
       kind: "private" as const,
       className: l.student.className,
       studentName: `${l.student.firstName} ${l.student.lastName}`.trim(),
+      studentGender: toGender(l.student.gender),
       subject: l.subject,
       durationMinutes: l.durationMinutes,
     })),

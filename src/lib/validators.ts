@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { he } from "@/lib/i18n/he";
+import { STUDENT_GENDERS } from "@/lib/enums";
+import { USER_ROLES } from "@/lib/enums";
 
 export const GradeRowSchema = z.object({
   id: z.string(),
@@ -100,6 +102,14 @@ export const PatchClassVisitSchema = z.object({
 });
 export type PatchClassVisitInput = z.infer<typeof PatchClassVisitSchema>;
 
+export const StudentGenderSchema = z.enum(STUDENT_GENDERS);
+export type StudentGenderInput = z.infer<typeof StudentGenderSchema>;
+
+export const PatchStudentSchema = z.object({
+  gender: StudentGenderSchema.nullable().optional(),
+});
+export type PatchStudentInput = z.infer<typeof PatchStudentSchema>;
+
 export const TimetableRowSchema = z.object({
   id: z.string(),
   className: z.string().min(1),
@@ -114,4 +124,28 @@ export const TimetableRowSchema = z.object({
 
 export const TimetablePayloadSchema = z.object({
   rows: z.array(TimetableRowSchema).min(1),
+});
+
+export const AdminBranchCreateSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .min(2)
+    .max(40)
+    .regex(/^[a-z0-9\-]+$/i, "Branch code must be letters, numbers, or hyphen"),
+  name: z.string().trim().min(2).max(120),
+});
+
+export const AdminUserCreateSchema = z.object({
+  email: z.string().trim().email(),
+  name: z.string().trim().min(2).max(120),
+  password: z.string().min(8).max(200),
+  role: z.enum(USER_ROLES),
+  branchId: z.string().min(1),
+});
+
+export const AdminUserPatchSchema = z.object({
+  role: z.enum(USER_ROLES).optional(),
+  branchId: z.string().min(1).optional(),
+  password: z.string().min(8).max(200).optional(),
 });

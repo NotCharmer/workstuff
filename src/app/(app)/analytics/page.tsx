@@ -15,13 +15,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MetricCard } from "@/components/dashboard/metric-card";
 
 import { getDashboardStats } from "@/lib/stats";
+import { getCurrentUserOrRedirect } from "@/lib/auth";
 import { formatGrade, initials, percent } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
 
 export const dynamic = "force-dynamic";
 
 export default async function AnalyticsPage() {
-  const s = await getDashboardStats();
+  const user = await getCurrentUserOrRedirect();
+  const s = await getDashboardStats("important", null, "latest", user.branchId);
   const passRate = percent(s.passCount, s.passCount + s.failCount);
 
   return (

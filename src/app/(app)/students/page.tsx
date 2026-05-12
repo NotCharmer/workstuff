@@ -8,6 +8,7 @@ import { StudentCard, type StudentCardData } from "@/components/students/student
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { he } from "@/lib/i18n/he";
+import { getCurrentUserOrRedirect } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -35,17 +36,22 @@ const REQUIRED_SUBJECT_FILTER = {
   OR: [
     { subject: { name: { contains: "פייתון" } } },
     { subject: { name: { contains: "מיתוג" } } },
+    { subject: { name: { contains: "מעבדה באלקטרוניקה" } } },
+    { subject: { name: { contains: "אלקטרוניקה" } } },
+    { subject: { name: { contains: "מעבדה" } } },
     { subject: { name: { contains: "python" } } },
     { subject: { name: { contains: "Python" } } },
+    { subject: { name: { contains: "electronics" } } },
+    { subject: { name: { contains: "lab" } } },
   ],
-} as const;
+};
 
 function isImportantSubject(subjectName: string): boolean {
   const normalized = subjectName.toLowerCase();
   return IMPORTANT_SUBJECT_TOKENS.some((token) => normalized.includes(token.toLowerCase()));
 }
 
-async function fetchStudents(params: SearchParams): Promise<StudentCardData[]> {
+async function fetchStudents(params: SearchParams, branchId: string | null): Promise<StudentCardData[]> {
   const q = params.q?.trim();
   const className = params.class?.trim();
   const averageMode: "all" | "important" = params.avg === "all" ? "all" : "important";
@@ -53,6 +59,9 @@ async function fetchStudents(params: SearchParams): Promise<StudentCardData[]> {
   const students = await prisma.student.findMany({
     where: {
       AND: [
+        {
+          branchId,
+        },
         {
           grades: {
             some: REQUIRED_SUBJECT_FILTER,
@@ -125,6 +134,7 @@ async function fetchStudents(params: SearchParams): Promise<StudentCardData[]> {
       lastName: s.lastName,
       externalId: s.externalId,
       className: s.className,
+      gender: s.gender === "FEMALE" ? "FEMALE" : "MALE",
       avatarHue: s.avatarHue,
       gradeCount: latestBySubject.size,
       average: avg,
@@ -145,10 +155,11 @@ export default async function StudentsPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const students = await fetchStudents(searchParams);
+  const user = await getCurrentUserOrRedirect();
+  const students = await fetchStudents(searchParams, user.branchId);
 
   const classes = await prisma.student.findMany({
-    where: { className: { not: null } },
+    where: { branchId: user.branchId, className: { not: null } },
     select: { className: true },
     distinct: ["className"],
   });

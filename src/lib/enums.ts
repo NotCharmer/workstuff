@@ -5,7 +5,7 @@
  * Keep these in lockstep with the comments in prisma/schema.prisma.
  */
 
-export const USER_ROLES = ["STAFF", "ADMIN"] as const;
+export const USER_ROLES = ["STAFF", "BRANCH_MANAGER", "ADMIN"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export const GRADE_SOURCES = ["MANUAL", "OCR", "IMPORT"] as const;
@@ -27,3 +27,6 @@ export const UPLOAD_STATUSES = [
   "DISCARDED",
 ] as const;
 export type UploadStatus = (typeof UPLOAD_STATUSES)[number];
+
+export const STUDENT_GENDERS = ["MALE", "FEMALE"] as const;
+export type StudentGender = (typeof STUDENT_GENDERS)[number];

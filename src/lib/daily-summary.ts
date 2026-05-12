@@ -8,6 +8,7 @@ export type DailySummaryEvent =
       kind: "private";
       className: string | null;
       studentName: string;
+      studentGender?: "MALE" | "FEMALE" | null;
       subject: string | null;
       durationMinutes: number;
     }
@@ -153,11 +154,26 @@ function formatPrivateLine(
   e: Extract<DailySummaryEvent, { kind: "private" }>,
   emojiFor: EmojiResolver
 ): string {
-  const isDouble = e.durationMinutes >= 120;
-  const prefix = isDouble ? "התקיים תגבור כפול" : "התקיים תגבור";
+  const hours = e.durationMinutes / 60;
+  const prefix =
+    hours === 3
+      ? "התקיים תגבור *משולש*"
+      : hours === 4
+        ? "התקיים תגבור *מרובע*"
+        : hours === 5
+          ? "התקיים תגבור *מחומש*"
+          : hours === 6
+            ? "התקיים תגבור *שש שעות*"
+            : e.durationMinutes >= 120
+              ? "התקיים תגבור כפול"
+              : "התקיים תגבור";
   const subject = e.subject?.trim() || FALLBACK_SUBJECT;
   const inSubject = subject.startsWith("ב") ? subject : `ב${subject}`;
-  return `${prefix} לשוחר ${e.studentName} ${inSubject}${emojiFor(subject)}`;
+  const cadetNoun =
+    e.studentGender === "FEMALE"
+      ? "לשוחרת"
+      : "לשוחר";
+  return `${prefix} ${cadetNoun} ${e.studentName} ${inSubject}${emojiFor(subject)}`;
 }
 
 function formatVisitLine(
@@ -170,15 +186,28 @@ function formatVisitLine(
   return `הסגל נכח בשיעור ${e.subject}${emojiFor(e.subject)}`;
 }
 
+function classKeyAndLabel(className?: string | null): { key: string; label: string } {
+  const normalizedLabel = (className ?? "").trim().replace(/\s+/g, " ");
+  if (!normalizedLabel) return { key: FALLBACK_CLASS, label: FALLBACK_CLASS };
+  const key = normalizedLabel
+    .replace(/\s+/g, "")
+    .replace(/[׳'"]/g, "")
+    .toLowerCase();
+  return { key, label: normalizedLabel };
+}
+
 function groupByClass<E extends { className?: string | null }>(
   events: E[]
-): Map<string, E[]> {
-  const groups = new Map<string, E[]>();
+): Map<string, { label: string; items: E[] }> {
+  const groups = new Map<string, { label: string; items: E[] }>();
   for (const e of events) {
-    const key = (e.className ?? "").trim() || FALLBACK_CLASS;
-    const list = groups.get(key) ?? [];
-    list.push(e);
-    groups.set(key, list);
+    const { key, label } = classKeyAndLabel(e.className);
+    const existing = groups.get(key);
+    if (!existing) {
+      groups.set(key, { label, items: [e] });
+      continue;
+    }
+    existing.items.push(e);
   }
   return groups;
 }
@@ -196,17 +225,19 @@ export function buildDailySummary(
   ].join("\n");
 
   const groups = groupByClass(events);
-  const orderedClasses = [...groups.keys()].sort((a, b) => a.localeCompare(b, "he"));
+  const orderedClasses = [...groups.entries()].sort((a, b) =>
+    a[1].label.localeCompare(b[1].label, "he")
+  );
   const emojiFor = buildEmojiResolver();
 
   const sections: string[] = [];
-  for (const className of orderedClasses) {
-    const items = groups.get(className) ?? [];
+  for (const [, group] of orderedClasses) {
+    const items = group.items;
     items.sort((a, b) => Number(a.kind === "private") - Number(b.kind === "private"));
     const lines = items.map((e) =>
       e.kind === "private" ? formatPrivateLine(e, emojiFor) : formatVisitLine(e, emojiFor)
     );
-    sections.push(`${className}:\n${lines.join("\n")}`);
+    sections.push(`${group.label}:\n${lines.join("\n")}`);
   }
 
   const body = sections.length

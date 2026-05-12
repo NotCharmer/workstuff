@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { PrivateLessonSchema } from "@/lib/validators";
 import { he } from "@/lib/i18n/he";
 
 export async function GET(req: Request) {
+  const user = await getCurrentUser();
   const { searchParams } = new URL(req.url);
   const studentId = searchParams.get("studentId") ?? undefined;
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
 
   const where: {
+    student?: { branchId: string | null };
     studentId?: string;
     date?: { gte?: string; lte?: string };
-  } = {};
+  } = { student: { branchId: user.branchId } };
   if (studentId) where.studentId = studentId;
   if (from || to) {
     where.date = {};
@@ -40,6 +43,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const user = await getCurrentUser();
   const body = await req.json().catch(() => null);
   const parsed = PrivateLessonSchema.safeParse(body);
   if (!parsed.success) {
@@ -49,8 +53,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const student = await prisma.student.findUnique({
-    where: { id: parsed.data.studentId },
+  const student = await prisma.student.findFirst({
+    where: { id: parsed.data.studentId, branchId: user.branchId },
   });
   if (!student) {
     return NextResponse.json(
