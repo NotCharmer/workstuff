@@ -127,11 +127,23 @@ The seeded admin can log in with email/password (credentials provider), then app
 npm run dev
 ```
 
+### Default local behavior (no login)
+
+With `npm run dev` (`NODE_ENV=development`), **auth is skipped by default**: you go straight to the app without signing in. `getCurrentUser()` uses a synthetic **Local Developer** user (ADMIN, ACTIVE) and attaches the first branch from the DB if one exists.
+
+To **require real NextAuth locally** (Google / password), set in `.env`:
+
+```env
+ENABLE_LOCAL_AUTH="true"
+```
+
+Then restart `npm run dev`. In that mode:
+
 Then in a browser:
 
 1. Visit `http://localhost:3000` → middleware redirects to `/login`.
 2. Click **כניסה עם Google (חשבון מחוזי)**.
-3. Sign in with a Google account whose email domain matches `DISTRICT_GOOGLE_DOMAIN`.
+3. Sign in with a Google account allowed by `ALLOWED_GOOGLE_EMAILS` or `DISTRICT_GOOGLE_DOMAIN`.
 4. Expected:
    - `events.signIn` in `auth-options.ts` creates a `User` row with `status=PENDING`, `onboardingCompleted=false`.
    - Middleware sees `!onboardingCompleted` → redirects to `/onboarding`.
@@ -139,6 +151,8 @@ Then in a browser:
    - Middleware now sees `status !== "ACTIVE"` → redirects to `/pending-approval`.
 5. In a second browser (or incognito), log in as the seeded admin via email/password → open Settings → admin panel → set the pending user's branch + `status=ACTIVE`.
 6. Refresh the pending user — they should land on `/dashboard`.
+
+**Note:** `next start` locally runs `NODE_ENV=production`, so auth is **not** skipped there (same as Vercel).
 
 ---
 

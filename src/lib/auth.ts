@@ -1,6 +1,34 @@
 import { getServerSession } from "next-auth/next";
+import { prisma } from "@/lib/db";
 import type { UserRole, UserStatus } from "./enums";
 import { authOptions } from "./auth-options";
+
+/** When true, `next dev` still uses real NextAuth (login required). */
+function isLocalAuthEnabled(): boolean {
+  return process.env.NODE_ENV === "development" && process.env.ENABLE_LOCAL_AUTH === "true";
+}
+
+function isLocalAuthBypass(): boolean {
+  return process.env.NODE_ENV === "development" && !isLocalAuthEnabled();
+}
+
+async function resolveLocalDevUser(): Promise<CurrentUser> {
+  const branch = await prisma.branch.findFirst({
+    orderBy: { createdAt: "asc" },
+    select: { id: true, code: true, name: true },
+  });
+  return {
+    id: "__local_dev__",
+    email: "dev@local.test",
+    name: "Local Developer",
+    role: "ADMIN",
+    status: "ACTIVE",
+    onboardingCompleted: true,
+    branchId: branch?.id ?? null,
+    branchCode: branch?.code ?? null,
+    branchName: branch?.name ?? null,
+  };
+}
 
 export type CurrentUser = {
   id: string;
@@ -24,6 +52,24 @@ export class AuthError extends Error {
 }
 
 export async function getCurrentUser(): Promise<CurrentUser> {
+  if (isLocalAuthBypass()) {
+    try {
+      return await resolveLocalDevUser();
+    } catch {
+      return {
+        id: "__local_dev__",
+        email: "dev@local.test",
+        name: "Local Developer",
+        role: "ADMIN",
+        status: "ACTIVE",
+        onboardingCompleted: true,
+        branchId: null,
+        branchCode: null,
+        branchName: null,
+      };
+    }
+  }
+
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || !session.user.email || !session.user.name) {
     throw new AuthError("Unauthorized", 401);
