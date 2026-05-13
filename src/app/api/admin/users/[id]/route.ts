@@ -37,13 +37,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if (target.role === "ADMIN" || parsed.data.role === "ADMIN") {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
+      if (parsed.data.status === "BLOCKED") {
+        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+      }
       if (parsed.data.branchId && parsed.data.branchId !== actor.branchId) {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
     }
 
-    const data: { role?: string; branchId?: string; passwordHash?: string } = {};
+    const data: { role?: string; status?: string; branchId?: string; passwordHash?: string } = {};
     if (parsed.data.role) data.role = parsed.data.role;
+    if (parsed.data.status) data.status = parsed.data.status;
     if (parsed.data.branchId) data.branchId = parsed.data.branchId;
     if (parsed.data.password) data.passwordHash = await hash(parsed.data.password, 12);
 
@@ -55,6 +59,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         email: true,
         name: true,
         role: true,
+        status: true,
         branchId: true,
       },
     });

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { he } from "@/lib/i18n/he";
 import { STUDENT_GENDERS } from "@/lib/enums";
 import { USER_ROLES } from "@/lib/enums";
+import { USER_STATUSES } from "@/lib/enums";
 
 export const GradeRowSchema = z.object({
   id: z.string(),
@@ -146,6 +147,7 @@ export const AdminUserCreateSchema = z.object({
 
 export const AdminUserPatchSchema = z.object({
   role: z.enum(USER_ROLES).optional(),
+  status: z.enum(USER_STATUSES).optional(),
   branchId: z.string().min(1).optional(),
   password: z.string().min(8).max(200).optional(),
 });

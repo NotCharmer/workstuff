@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth/next";
-import type { UserRole } from "./enums";
+import type { UserRole, UserStatus } from "./enums";
 import { authOptions } from "./auth-options";
 
 export type CurrentUser = {
@@ -7,6 +7,8 @@ export type CurrentUser = {
   email: string;
   name: string;
   role: UserRole;
+  status: UserStatus;
+  onboardingCompleted: boolean;
   branchId: string | null;
   branchCode: string | null;
   branchName: string | null;
@@ -31,6 +33,8 @@ export async function getCurrentUser(): Promise<CurrentUser> {
     email: session.user.email,
     name: session.user.name,
     role: session.user.role ?? "STAFF",
+    status: session.user.status ?? "PENDING",
+    onboardingCompleted: session.user.onboardingCompleted ?? false,
     branchId: session.user.branchId ?? null,
     branchCode: session.user.branchCode ?? null,
     branchName: session.user.branchName ?? null,
@@ -39,6 +43,9 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 
 export async function requireRole(roles: UserRole[]): Promise<CurrentUser> {
   const user = await getCurrentUser();
+  if (user.status !== "ACTIVE") {
+    throw new AuthError("Account pending approval", 403);
+  }
   if (!roles.includes(user.role)) {
     throw new AuthError("Forbidden", 403);
   }

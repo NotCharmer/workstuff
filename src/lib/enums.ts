@@ -8,6 +8,9 @@
 export const USER_ROLES = ["STAFF", "BRANCH_MANAGER", "ADMIN"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
+export const USER_STATUSES = ["PENDING", "ACTIVE", "BLOCKED"] as const;
+export type UserStatus = (typeof USER_STATUSES)[number];
+
 export const GRADE_SOURCES = ["MANUAL", "OCR", "IMPORT"] as const;
 export type GradeSource = (typeof GRADE_SOURCES)[number];
 

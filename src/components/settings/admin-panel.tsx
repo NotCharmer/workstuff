@@ -19,6 +19,9 @@ type AdminUser = {
   email: string;
   name: string;
   role: "ADMIN" | "BRANCH_MANAGER" | "STAFF";
+  status: "PENDING" | "ACTIVE" | "BLOCKED";
+  onboardingCompleted?: boolean;
+  requestedBranchCode?: string | null;
   branchId: string | null;
   branch?: { id: string; code: string; name: string } | null;
 };
@@ -119,7 +122,11 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
 
   async function updateUser(
     userId: string,
-    patch: Partial<{ role: "ADMIN" | "BRANCH_MANAGER" | "STAFF"; branchId: string }>
+    patch: Partial<{
+      role: "ADMIN" | "BRANCH_MANAGER" | "STAFF";
+      status: "PENDING" | "ACTIVE" | "BLOCKED";
+      branchId: string;
+    }>
   ) {
     setSaving(true);
     try {
@@ -236,6 +243,14 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
                 <div className="mb-2 font-medium">
                   {u.name} • {u.email}
                 </div>
+                {!u.onboardingCompleted && (
+                  <div className="mb-2 text-xs text-amber-600">onboarding not completed</div>
+                )}
+                {u.requestedBranchCode && (
+                  <div className="mb-2 text-xs text-muted-foreground">
+                    requested branch: {u.requestedBranchCode}
+                  </div>
+                )}
                 <div className="grid gap-2 sm:grid-cols-2">
                   <select
                     value={u.role}
@@ -262,6 +277,23 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
                       </option>
                     ))}
                   </select>
+                </div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <select
+                    value={u.status}
+                    onChange={(e) =>
+                      updateUser(u.id, {
+                        status: e.target.value as "PENDING" | "ACTIVE" | "BLOCKED",
+                      })
+                    }
+                    className="h-9 rounded-lg border border-input bg-background px-3 text-sm"
+                    disabled={role !== "ADMIN"}
+                  >
+                    <option value="PENDING">PENDING</option>
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="BLOCKED">BLOCKED</option>
+                  </select>
+                  <div className="self-center text-xs text-muted-foreground">status: {u.status}</div>
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
                   current branch: {branchById.get(u.branchId ?? "")?.name ?? "—"}

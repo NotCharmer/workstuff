@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { Loader2, LogIn } from "lucide-react";
@@ -11,11 +11,17 @@ import { Button } from "@/components/ui/button";
 export default function LoginPage() {
   const router = useRouter();
   const callbackUrl = "/dashboard";
+  const [ssoError, setSsoError] = useState<string | null>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setSsoError(params.get("error"));
+  }, []);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -45,6 +51,15 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              onClick={() => signIn("google", { callbackUrl })}
+            >
+              כניסה עם Google (חשבון מחוזי)
+            </Button>
+            <div className="text-center text-xs text-muted-foreground">או</div>
             <div className="space-y-1">
               <label htmlFor="email" className="text-sm font-medium">
                 אימייל
@@ -72,6 +87,11 @@ export default function LoginPage() {
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
+            {ssoError === "domain" && (
+              <p className="text-sm text-destructive">
+                ניתן להתחבר רק עם חשבון Google של המחוז.
+              </p>
+            )}
             <Button type="submit" className="w-full gap-2" disabled={pending}>
               {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
               כניסה

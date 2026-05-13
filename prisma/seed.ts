@@ -94,11 +94,20 @@ async function main() {
   console.log("→ Seeding admin user");
   const staff = await prisma.user.upsert({
     where: { email: adminEmail },
-    update: { branchId: branch.id, name: adminName, role: "ADMIN", passwordHash: adminPasswordHash },
+    update: {
+      branchId: branch.id,
+      name: adminName,
+      role: "ADMIN",
+      status: "ACTIVE",
+      onboardingCompleted: true,
+      passwordHash: adminPasswordHash,
+    },
     create: {
       email: adminEmail,
       name: adminName,
       role: "ADMIN",
+      status: "ACTIVE",
+      onboardingCompleted: true,
       passwordHash: adminPasswordHash,
       branchId: branch.id,
     },
