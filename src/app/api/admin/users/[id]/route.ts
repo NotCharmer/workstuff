@@ -30,14 +30,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (!target) {
       return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
     }
+    if (parsed.data.status === "ACTIVE" && !(parsed.data.branchId ?? target.branchId)) {
+      return NextResponse.json(
+        { ok: false, error: "Branch required before activation" },
+        { status: 400 }
+      );
+    }
     if (actor.role !== "ADMIN") {
       if (!actor.branchId || target.branchId !== actor.branchId) {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
-      if (target.role === "ADMIN" || parsed.data.role === "ADMIN") {
+      if (target.role === "ADMIN" || (parsed.data.role && parsed.data.role !== "STAFF")) {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
-      if (parsed.data.status === "BLOCKED") {
+      if (parsed.data.status) {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
       if (parsed.data.branchId && parsed.data.branchId !== actor.branchId) {
