@@ -3,12 +3,12 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { getAuthSecret } from "@/lib/auth-secret";
 import { USER_ROLES, USER_STATUSES, type UserRole, type UserStatus } from "@/lib/enums";
 
 const roleSet = new Set<string>(USER_ROLES);
 const statusSet = new Set<string>(USER_STATUSES);
-const AUTH_SECRET =
-  process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "dev-only-secret-change-me";
+const AUTH_SECRET = getAuthSecret();
 const DISTRICT_GOOGLE_DOMAIN = process.env.DISTRICT_GOOGLE_DOMAIN?.trim().toLowerCase() || "";
 
 function emailDomain(email: string): string {
@@ -113,6 +113,7 @@ export const authOptions: NextAuthOptions = {
           include: { branch: true },
         });
         if (dbUser) {
+          token.sub = dbUser.id;
           (token as any).role = roleSet.has(dbUser.role) ? dbUser.role : "STAFF";
           (token as any).status = statusSet.has(dbUser.status) ? dbUser.status : "PENDING";
           (token as any).onboardingCompleted = Boolean(dbUser.onboardingCompleted);
