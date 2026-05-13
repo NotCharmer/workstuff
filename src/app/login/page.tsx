@@ -87,9 +87,9 @@ export default function LoginPage() {
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            {ssoError === "domain" && (
+            {(ssoError === "domain" || ssoError === "google_not_allowed") && (
               <p className="text-sm text-destructive">
-                ניתן להתחבר רק עם חשבון Google של המחוז.
+                ניתן להתחבר רק עם חשבון Google מאושר.
               </p>
             )}
             <Button type="submit" className="w-full gap-2" disabled={pending}>

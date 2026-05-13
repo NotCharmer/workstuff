@@ -93,6 +93,7 @@ You must do this part yourself (Google requires your account). It takes ~5 minut
 GOOGLE_CLIENT_ID="<paste from Google>"
 GOOGLE_CLIENT_SECRET="<paste from Google>"
 DISTRICT_GOOGLE_DOMAIN="your-district-domain.example"   # the part after @ in district emails
+ALLOWED_GOOGLE_EMAILS=""                                  # optional: comma-separated exact emails
 NEXTAUTH_URL="http://localhost:3000"                    # for local; set to https://your-domain for prod
 ```
 
@@ -100,6 +101,11 @@ Important about `DISTRICT_GOOGLE_DOMAIN`:
 - `auth-options.ts` rejects any Google account whose email domain doesn't match.
 - It does a `.toLowerCase()` compare, no leading `@`, e.g. `tlv.k12.il` not `@tlv.k12.il`.
 - If you leave it empty, all Google sign-ins are rejected (`/login?error=domain`).
+
+Important about `ALLOWED_GOOGLE_EMAILS`:
+- If this list has values, only these exact emails can sign in with Google.
+- Comma-separated, case-insensitive.
+- When this is set, domain checks become a fallback only.
 
 ---
 

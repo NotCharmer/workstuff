@@ -10,10 +10,28 @@ const statusSet = new Set<string>(USER_STATUSES);
 const AUTH_SECRET =
   process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "dev-only-secret-change-me";
 const DISTRICT_GOOGLE_DOMAIN = process.env.DISTRICT_GOOGLE_DOMAIN?.trim().toLowerCase() || "";
+const ALLOWED_GOOGLE_EMAILS = new Set(
+  (process.env.ALLOWED_GOOGLE_EMAILS || "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+);
 
 function emailDomain(email: string): string {
   const idx = email.lastIndexOf("@");
   return idx >= 0 ? email.slice(idx + 1).toLowerCase() : "";
+}
+
+function isGoogleEmailAllowed(email: string): boolean {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return false;
+
+  if (ALLOWED_GOOGLE_EMAILS.size > 0) {
+    return ALLOWED_GOOGLE_EMAILS.has(normalized);
+  }
+
+  const domain = emailDomain(normalized);
+  return Boolean(DISTRICT_GOOGLE_DOMAIN) && domain === DISTRICT_GOOGLE_DOMAIN;
 }
 
 export const authOptions: NextAuthOptions = {
@@ -64,8 +82,7 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account, profile }) {
       if (account?.provider !== "google" || !user.email) return;
       const email = user.email.toLowerCase();
-      const domain = emailDomain(email);
-      if (!DISTRICT_GOOGLE_DOMAIN || domain !== DISTRICT_GOOGLE_DOMAIN) return;
+      if (!isGoogleEmailAllowed(email)) return;
       const existing = await prisma.user.findUnique({ where: { email } });
       if (existing) {
         await prisma.user.update({
@@ -89,10 +106,8 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account }) {
       if (account?.provider === "google") {
         const email = user.email?.toLowerCase() || "";
-        if (!email) return false;
-        const domain = emailDomain(email);
-        if (!DISTRICT_GOOGLE_DOMAIN || domain !== DISTRICT_GOOGLE_DOMAIN) {
-          return "/login?error=domain";
+        if (!isGoogleEmailAllowed(email)) {
+          return "/login?error=google_not_allowed";
         }
       }
       return true;
