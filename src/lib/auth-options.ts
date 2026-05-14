@@ -34,6 +34,39 @@ function isGoogleEmailAllowed(email: string): boolean {
   return Boolean(DISTRICT_GOOGLE_DOMAIN) && domain === DISTRICT_GOOGLE_DOMAIN;
 }
 
+type AuthDbUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  status: string;
+  onboardingCompleted: boolean;
+  branchId: string | null;
+  branch: { code: string; name: string } | null;
+};
+
+function normalizedRole(role: string): UserRole {
+  return roleSet.has(role) ? (role as UserRole) : "STAFF";
+}
+
+function normalizedStatus(status: string): UserStatus {
+  return statusSet.has(status) ? (status as UserStatus) : "PENDING";
+}
+
+function authUserFromDb(user: AuthDbUser) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: normalizedRole(user.role),
+    status: normalizedStatus(user.status),
+    onboardingCompleted: user.onboardingCompleted,
+    branchId: user.branchId,
+    branchCode: user.branch?.code ?? null,
+    branchName: user.branch?.name ?? null,
+  };
+}
+
 export const authOptions: NextAuthOptions = {
   secret: AUTH_SECRET,
   session: { strategy: "jwt" },
@@ -62,58 +95,39 @@ export const authOptions: NextAuthOptions = {
         const ok = await compare(password, user.passwordHash);
         if (!ok) return null;
 
-        const role: UserRole = roleSet.has(user.role) ? (user.role as UserRole) : "STAFF";
-        const status: UserStatus = statusSet.has(user.status) ? (user.status as UserStatus) : "PENDING";
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role,
-          status,
-          onboardingCompleted: user.onboardingCompleted,
-          branchId: user.branchId,
-          branchCode: user.branch?.code ?? null,
-          branchName: user.branch?.name ?? null,
-        } as any;
+        return authUserFromDb(user) as any;
       },
     }),
   ],
-  events: {
+  callbacks: {
     async signIn({ user, account, profile }) {
-      if (account?.provider !== "google" || !user.email) return;
-      const email = user.email.toLowerCase();
-      if (!isGoogleEmailAllowed(email)) return;
-      const existing = await prisma.user.findUnique({ where: { email } });
-      if (existing) {
-        await prisma.user.update({
+      if (account?.provider === "google") {
+        const email = user.email?.trim().toLowerCase() || "";
+        if (!isGoogleEmailAllowed(email)) {
+          return "/login?error=google_not_allowed";
+        }
+
+        const dbUser = await prisma.user.upsert({
           where: { email },
-          data: { name: user.name || existing.name },
-        });
-      } else {
-        await prisma.user.create({
-          data: {
+          update: user.name ? { name: user.name } : {},
+          create: {
             email,
             name: user.name || (profile as any)?.name || email,
             role: "STAFF",
             status: "PENDING",
             onboardingCompleted: false,
           },
+          include: { branch: true },
         });
-      }
-    },
-  },
-  callbacks: {
-    async signIn({ user, account }) {
-      if (account?.provider === "google") {
-        const email = user.email?.toLowerCase() || "";
-        if (!isGoogleEmailAllowed(email)) {
-          return "/login?error=google_not_allowed";
-        }
+        Object.assign(user as any, authUserFromDb(dbUser));
       }
       return true;
     },
     async jwt({ token, user }) {
       if (user) {
+        if ((user as any).id) {
+          token.sub = String((user as any).id);
+        }
         (token as any).role = (user as any).role ?? "STAFF";
         (token as any).status = (user as any).status ?? "PENDING";
         (token as any).onboardingCompleted = (user as any).onboardingCompleted ?? false;
@@ -128,8 +142,9 @@ export const authOptions: NextAuthOptions = {
           include: { branch: true },
         });
         if (dbUser) {
-          (token as any).role = roleSet.has(dbUser.role) ? dbUser.role : "STAFF";
-          (token as any).status = statusSet.has(dbUser.status) ? dbUser.status : "PENDING";
+          token.sub = dbUser.id;
+          (token as any).role = normalizedRole(dbUser.role);
+          (token as any).status = normalizedStatus(dbUser.status);
           (token as any).onboardingCompleted = Boolean(dbUser.onboardingCompleted);
           (token as any).branchId = dbUser.branchId;
           (token as any).branchCode = dbUser.branch?.code ?? null;
