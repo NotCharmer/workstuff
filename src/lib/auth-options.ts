@@ -17,6 +17,11 @@ const ALLOWED_GOOGLE_EMAILS = new Set(
     .filter(Boolean)
 );
 
+type GoogleUserLike = {
+  email?: string | null;
+  name?: string | null;
+};
+
 function emailDomain(email: string): string {
   const idx = email.lastIndexOf("@");
   return idx >= 0 ? email.slice(idx + 1).toLowerCase() : "";
@@ -32,6 +37,31 @@ function isGoogleEmailAllowed(email: string): boolean {
 
   const domain = emailDomain(normalized);
   return Boolean(DISTRICT_GOOGLE_DOMAIN) && domain === DISTRICT_GOOGLE_DOMAIN;
+}
+
+async function ensureGoogleUser(user: GoogleUserLike, profile?: unknown) {
+  const email = user.email?.trim().toLowerCase();
+  if (!email) return null;
+
+  const profileName =
+    profile && typeof profile === "object" && "name" in profile
+      ? String((profile as { name?: unknown }).name || "")
+      : "";
+  const providerName = user.name || profileName;
+  const name = providerName || email;
+
+  return prisma.user.upsert({
+    where: { email },
+    update: providerName ? { name: providerName } : { email },
+    create: {
+      email,
+      name,
+      role: "STAFF",
+      status: "PENDING",
+      onboardingCompleted: false,
+    },
+    include: { branch: true },
+  });
 }
 
 export const authOptions: NextAuthOptions = {
@@ -78,37 +108,14 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  events: {
-    async signIn({ user, account, profile }) {
-      if (account?.provider !== "google" || !user.email) return;
-      const email = user.email.toLowerCase();
-      if (!isGoogleEmailAllowed(email)) return;
-      const existing = await prisma.user.findUnique({ where: { email } });
-      if (existing) {
-        await prisma.user.update({
-          where: { email },
-          data: { name: user.name || existing.name },
-        });
-      } else {
-        await prisma.user.create({
-          data: {
-            email,
-            name: user.name || (profile as any)?.name || email,
-            role: "STAFF",
-            status: "PENDING",
-            onboardingCompleted: false,
-          },
-        });
-      }
-    },
-  },
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
         const email = user.email?.toLowerCase() || "";
         if (!isGoogleEmailAllowed(email)) {
           return "/login?error=google_not_allowed";
         }
+        await ensureGoogleUser(user, profile);
       }
       return true;
     },
@@ -128,12 +135,21 @@ export const authOptions: NextAuthOptions = {
           include: { branch: true },
         });
         if (dbUser) {
+          token.sub = dbUser.id;
           (token as any).role = roleSet.has(dbUser.role) ? dbUser.role : "STAFF";
           (token as any).status = statusSet.has(dbUser.status) ? dbUser.status : "PENDING";
           (token as any).onboardingCompleted = Boolean(dbUser.onboardingCompleted);
           (token as any).branchId = dbUser.branchId;
           (token as any).branchCode = dbUser.branch?.code ?? null;
           (token as any).branchName = dbUser.branch?.name ?? null;
+        } else {
+          token.sub = "";
+          (token as any).role = "STAFF";
+          (token as any).status = "PENDING";
+          (token as any).onboardingCompleted = false;
+          (token as any).branchId = null;
+          (token as any).branchCode = null;
+          (token as any).branchName = null;
         }
       }
       return token;
