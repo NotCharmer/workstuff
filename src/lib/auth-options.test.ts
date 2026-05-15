@@ -2,11 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { prisma } from "@/lib/db";
 
-process.env.ALLOWED_GOOGLE_EMAILS = "person@example.com";
+let authOptionsImport: Promise<typeof import("./auth-options")> | undefined;
 
-const { authOptions } = await import("./auth-options");
+async function loadAuthOptions() {
+  process.env.ALLOWED_GOOGLE_EMAILS = "person@example.com";
+  authOptionsImport ??= import("./auth-options");
+  return authOptionsImport;
+}
 
 test("google sign-in provisions an allowed user by normalized email", async () => {
+  const { authOptions } = await loadAuthOptions();
   const originalUpsert = prisma.user.upsert;
   let upsertArgs: unknown;
 
@@ -41,6 +46,7 @@ test("google sign-in provisions an allowed user by normalized email", async () =
 });
 
 test("jwt refresh replaces provider subject with the database user id", async () => {
+  const { authOptions } = await loadAuthOptions();
   const originalFindUnique = prisma.user.findUnique;
 
   try {
@@ -70,6 +76,7 @@ test("jwt refresh replaces provider subject with the database user id", async ()
 });
 
 test("jwt refresh clears usable claims when the database user is gone", async () => {
+  const { authOptions } = await loadAuthOptions();
   const originalFindUnique = prisma.user.findUnique;
 
   try {
