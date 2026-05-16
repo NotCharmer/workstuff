@@ -34,6 +34,55 @@ function isGoogleEmailAllowed(email: string): boolean {
   return Boolean(DISTRICT_GOOGLE_DOMAIN) && domain === DISTRICT_GOOGLE_DOMAIN;
 }
 
+type AuthSessionUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  status: UserStatus;
+  onboardingCompleted: boolean;
+  branchId: string | null;
+  branchCode: string | null;
+  branchName: string | null;
+};
+
+type DbUserWithBranch = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  status: string;
+  onboardingCompleted: boolean;
+  branchId: string | null;
+  branch: { code: string; name: string } | null;
+};
+
+function toAuthSessionUser(user: DbUserWithBranch): AuthSessionUser {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: roleSet.has(user.role) ? (user.role as UserRole) : "STAFF",
+    status: statusSet.has(user.status) ? (user.status as UserStatus) : "PENDING",
+    onboardingCompleted: Boolean(user.onboardingCompleted),
+    branchId: user.branchId,
+    branchCode: user.branch?.code ?? null,
+    branchName: user.branch?.name ?? null,
+  };
+}
+
+function applyAuthSessionUser(target: any, user: AuthSessionUser) {
+  target.id = user.id;
+  target.email = user.email;
+  target.name = user.name;
+  target.role = user.role;
+  target.status = user.status;
+  target.onboardingCompleted = user.onboardingCompleted;
+  target.branchId = user.branchId;
+  target.branchCode = user.branchCode;
+  target.branchName = user.branchName;
+}
+
 export const authOptions: NextAuthOptions = {
   secret: AUTH_SECRET,
   session: { strategy: "jwt" },
@@ -62,64 +111,49 @@ export const authOptions: NextAuthOptions = {
         const ok = await compare(password, user.passwordHash);
         if (!ok) return null;
 
-        const role: UserRole = roleSet.has(user.role) ? (user.role as UserRole) : "STAFF";
-        const status: UserStatus = statusSet.has(user.status) ? (user.status as UserStatus) : "PENDING";
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role,
-          status,
-          onboardingCompleted: user.onboardingCompleted,
-          branchId: user.branchId,
-          branchCode: user.branch?.code ?? null,
-          branchName: user.branch?.name ?? null,
-        } as any;
+        return toAuthSessionUser(user) as any;
       },
     }),
   ],
-  events: {
+  callbacks: {
     async signIn({ user, account, profile }) {
-      if (account?.provider !== "google" || !user.email) return;
-      const email = user.email.toLowerCase();
-      if (!isGoogleEmailAllowed(email)) return;
-      const existing = await prisma.user.findUnique({ where: { email } });
-      if (existing) {
-        await prisma.user.update({
+      if (account?.provider === "google") {
+        const email = user.email?.trim().toLowerCase() || "";
+        if (!isGoogleEmailAllowed(email)) {
+          return "/login?error=google_not_allowed";
+        }
+        const displayName = user.name || (profile as any)?.name || "";
+
+        const dbUser = await prisma.user.upsert({
           where: { email },
-          data: { name: user.name || existing.name },
-        });
-      } else {
-        await prisma.user.create({
-          data: {
+          update: displayName ? { name: displayName } : {},
+          create: {
             email,
-            name: user.name || (profile as any)?.name || email,
+            name: displayName || email,
             role: "STAFF",
             status: "PENDING",
             onboardingCompleted: false,
           },
+          include: { branch: true },
         });
-      }
-    },
-  },
-  callbacks: {
-    async signIn({ user, account }) {
-      if (account?.provider === "google") {
-        const email = user.email?.toLowerCase() || "";
-        if (!isGoogleEmailAllowed(email)) {
-          return "/login?error=google_not_allowed";
-        }
+        applyAuthSessionUser(user as any, toAuthSessionUser(dbUser));
       }
       return true;
     },
     async jwt({ token, user }) {
       if (user) {
-        (token as any).role = (user as any).role ?? "STAFF";
-        (token as any).status = (user as any).status ?? "PENDING";
-        (token as any).onboardingCompleted = (user as any).onboardingCompleted ?? false;
-        (token as any).branchId = (user as any).branchId ?? null;
-        (token as any).branchCode = (user as any).branchCode ?? null;
-        (token as any).branchName = (user as any).branchName ?? null;
+        (token as any).sub = (user as any).id ?? (token as any).sub;
+        applyAuthSessionUser(token as any, {
+          id: (token as any).sub ?? "",
+          email: (user as any).email ?? (token as any).email ?? "",
+          name: (user as any).name ?? (token as any).name ?? "",
+          role: (user as any).role ?? "STAFF",
+          status: (user as any).status ?? "PENDING",
+          onboardingCompleted: (user as any).onboardingCompleted ?? false,
+          branchId: (user as any).branchId ?? null,
+          branchCode: (user as any).branchCode ?? null,
+          branchName: (user as any).branchName ?? null,
+        });
       }
 
       if ((token as any).email) {
@@ -128,12 +162,9 @@ export const authOptions: NextAuthOptions = {
           include: { branch: true },
         });
         if (dbUser) {
-          (token as any).role = roleSet.has(dbUser.role) ? dbUser.role : "STAFF";
-          (token as any).status = statusSet.has(dbUser.status) ? dbUser.status : "PENDING";
-          (token as any).onboardingCompleted = Boolean(dbUser.onboardingCompleted);
-          (token as any).branchId = dbUser.branchId;
-          (token as any).branchCode = dbUser.branch?.code ?? null;
-          (token as any).branchName = dbUser.branch?.name ?? null;
+          const authUser = toAuthSessionUser(dbUser);
+          (token as any).sub = authUser.id;
+          applyAuthSessionUser(token as any, authUser);
         }
       }
       return token;
