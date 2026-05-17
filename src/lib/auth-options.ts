@@ -1,5 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { compare } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { USER_ROLES, USER_STATUSES, type UserRole, type UserStatus } from "@/lib/enums";
 
@@ -7,71 +8,56 @@ const roleSet = new Set<string>(USER_ROLES);
 const statusSet = new Set<string>(USER_STATUSES);
 const AUTH_SECRET =
   process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "dev-only-secret-change-me";
-const DISTRICT_GOOGLE_DOMAIN = process.env.DISTRICT_GOOGLE_DOMAIN?.trim().toLowerCase() || "";
-const ALLOWED_GOOGLE_EMAILS = new Set(
-  (process.env.ALLOWED_GOOGLE_EMAILS || "")
-    .split(",")
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean)
-);
-
-function emailDomain(email: string): string {
-  const idx = email.lastIndexOf("@");
-  return idx >= 0 ? email.slice(idx + 1).toLowerCase() : "";
-}
-
-function isGoogleEmailAllowed(email: string): boolean {
-  const normalized = email.trim().toLowerCase();
-  if (!normalized) return false;
-  if (ALLOWED_GOOGLE_EMAILS.size > 0) return ALLOWED_GOOGLE_EMAILS.has(normalized);
-  const domain = emailDomain(normalized);
-  return Boolean(DISTRICT_GOOGLE_DOMAIN) && domain === DISTRICT_GOOGLE_DOMAIN;
-}
+const PRIMARY_LOGIN_EMAIL = "mercazhadash@gmail.com";
 
 export const authOptions: NextAuthOptions = {
   secret: AUTH_SECRET,
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    CredentialsProvider({
+      name: "Email and password",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const email = credentials?.email?.toString().trim().toLowerCase();
+        const password = credentials?.password?.toString() ?? "";
+        if (!email || !password) return null;
+        if (email !== PRIMARY_LOGIN_EMAIL) return null;
+
+        let user;
+        try {
+          user = await prisma.user.findUnique({
+            where: { email },
+            include: { branch: true },
+          });
+        } catch (e) {
+          console.error("[auth credentials] database unreachable:", e);
+          return null;
+        }
+        if (!user?.passwordHash) return null;
+        const ok = await compare(password, user.passwordHash);
+        if (!ok) return null;
+
+        const role: UserRole = roleSet.has(user.role) ? (user.role as UserRole) : "STAFF";
+        const status: UserStatus = statusSet.has(user.status) ? (user.status as UserStatus) : "PENDING";
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role,
+          status,
+          onboardingCompleted: user.onboardingCompleted,
+          branchId: user.branchId,
+          branchCode: user.branch?.code ?? null,
+          branchName: user.branch?.name ?? null,
+        } as any;
+      },
     }),
   ],
-  events: {
-    async signIn({ user, account, profile }) {
-      if (account?.provider !== "google" || !user.email) return;
-      const email = user.email.toLowerCase();
-      if (!isGoogleEmailAllowed(email)) return;
-      try {
-        await prisma.user.upsert({
-          where: { email },
-          create: {
-            email,
-            name: user.name || (profile as any)?.name || email,
-            role: "STAFF",
-            status: "PENDING",
-            onboardingCompleted: false,
-          },
-          update: {
-            name: user.name || undefined,
-          },
-        });
-      } catch (e) {
-        console.error("[auth events.signIn] Google user sync failed:", e);
-      }
-    },
-  },
   callbacks: {
-    async signIn({ user, account }) {
-      if (account?.provider === "google") {
-        const email = user.email?.toLowerCase() || "";
-        if (!isGoogleEmailAllowed(email)) {
-          return "/login?error=google_not_allowed";
-        }
-      }
-      return true;
-    },
     async jwt({ token, user }) {
       if (user) {
         (token as any).role = (user as any).role ?? "STAFF";
