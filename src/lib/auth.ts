@@ -14,6 +14,11 @@ export type CurrentUser = {
   branchName: string | null;
 };
 
+type GetCurrentUserOptions = {
+  allowInactive?: boolean;
+  allowIncompleteOnboarding?: boolean;
+};
+
 export class AuthError extends Error {
   status: number;
   constructor(message = "Unauthorized", status = 401) {
@@ -23,12 +28,12 @@ export class AuthError extends Error {
   }
 }
 
-export async function getCurrentUser(): Promise<CurrentUser> {
+export async function getCurrentUser(options: GetCurrentUserOptions = {}): Promise<CurrentUser> {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || !session.user.email || !session.user.name) {
     throw new AuthError("Unauthorized", 401);
   }
-  return {
+  const user = {
     id: session.user.id,
     email: session.user.email,
     name: session.user.name,
@@ -39,6 +44,13 @@ export async function getCurrentUser(): Promise<CurrentUser> {
     branchCode: session.user.branchCode ?? null,
     branchName: session.user.branchName ?? null,
   };
+  if (!options.allowIncompleteOnboarding && !user.onboardingCompleted) {
+    throw new AuthError("Onboarding required", 403);
+  }
+  if (!options.allowInactive && user.status !== "ACTIVE") {
+    throw new AuthError("Account pending approval", 403);
+  }
+  return user;
 }
 
 export async function requireRole(roles: UserRole[]): Promise<CurrentUser> {
@@ -59,6 +71,10 @@ export async function getCurrentUserOrRedirect(): Promise<CurrentUser> {
     if (error instanceof AuthError && error.status === 401) {
       const { redirect } = await import("next/navigation");
       redirect("/login");
+    }
+    if (error instanceof AuthError && error.status === 403) {
+      const { redirect } = await import("next/navigation");
+      redirect(error.message === "Onboarding required" ? "/onboarding" : "/pending-approval");
     }
     throw error;
   }

@@ -10,7 +10,7 @@ const OnboardingSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const user = await getCurrentUser();
+    const user = await getCurrentUser({ allowInactive: true, allowIncompleteOnboarding: true });
     const body = await req.json().catch(() => null);
     const parsed = OnboardingSchema.safeParse(body);
     if (!parsed.success) {

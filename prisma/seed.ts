@@ -65,7 +65,13 @@ function pick<T>(arr: T[]) {
 }
 
 async function main() {
-  const adminEmail = process.env.DEFAULT_ADMIN_EMAIL?.trim().toLowerCase() || "admin@district.local";
+  const configuredLoginEmail =
+    process.env.PRIMARY_LOGIN_EMAIL?.trim().toLowerCase() ||
+    process.env.NEXT_PUBLIC_PRIMARY_LOGIN_EMAIL?.trim().toLowerCase();
+  const adminEmail =
+    process.env.DEFAULT_ADMIN_EMAIL?.trim().toLowerCase() ||
+    configuredLoginEmail ||
+    "admin@district.local";
   const adminName = process.env.DEFAULT_ADMIN_NAME?.trim() || "District Admin";
   const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD?.trim() || "ChangeMe123!";
   const adminPasswordHash = await hash(adminPassword, 12);

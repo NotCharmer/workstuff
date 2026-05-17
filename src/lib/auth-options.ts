@@ -8,7 +8,18 @@ const roleSet = new Set<string>(USER_ROLES);
 const statusSet = new Set<string>(USER_STATUSES);
 const AUTH_SECRET =
   process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "dev-only-secret-change-me";
-const PRIMARY_LOGIN_EMAIL = "mercazhadash@gmail.com";
+const DEFAULT_PRIMARY_LOGIN_EMAIL = "admin@district.local";
+
+function normalizedEmail(value: string | undefined): string | null {
+  const email = value?.trim().toLowerCase();
+  return email || null;
+}
+
+const PRIMARY_LOGIN_EMAIL =
+  normalizedEmail(process.env.PRIMARY_LOGIN_EMAIL) ??
+  normalizedEmail(process.env.NEXT_PUBLIC_PRIMARY_LOGIN_EMAIL) ??
+  normalizedEmail(process.env.DEFAULT_ADMIN_EMAIL) ??
+  DEFAULT_PRIMARY_LOGIN_EMAIL;
 
 export const authOptions: NextAuthOptions = {
   secret: AUTH_SECRET,
