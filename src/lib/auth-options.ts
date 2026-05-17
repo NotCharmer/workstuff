@@ -1,7 +1,5 @@
 import type { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
-import { compare } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { USER_ROLES, USER_STATUSES, type UserRole, type UserStatus } from "@/lib/enums";
 
@@ -25,11 +23,7 @@ function emailDomain(email: string): string {
 function isGoogleEmailAllowed(email: string): boolean {
   const normalized = email.trim().toLowerCase();
   if (!normalized) return false;
-
-  if (ALLOWED_GOOGLE_EMAILS.size > 0) {
-    return ALLOWED_GOOGLE_EMAILS.has(normalized);
-  }
-
+  if (ALLOWED_GOOGLE_EMAILS.size > 0) return ALLOWED_GOOGLE_EMAILS.has(normalized);
   const domain = emailDomain(normalized);
   return Boolean(DISTRICT_GOOGLE_DOMAIN) && domain === DISTRICT_GOOGLE_DOMAIN;
 }
@@ -43,62 +37,28 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
-    CredentialsProvider({
-      name: "Email and password",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        const email = credentials?.email?.toString().trim().toLowerCase();
-        const password = credentials?.password?.toString() ?? "";
-        if (!email || !password) return null;
-
-        const user = await prisma.user.findUnique({
-          where: { email },
-          include: { branch: true },
-        });
-        if (!user?.passwordHash) return null;
-        const ok = await compare(password, user.passwordHash);
-        if (!ok) return null;
-
-        const role: UserRole = roleSet.has(user.role) ? (user.role as UserRole) : "STAFF";
-        const status: UserStatus = statusSet.has(user.status) ? (user.status as UserStatus) : "PENDING";
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role,
-          status,
-          onboardingCompleted: user.onboardingCompleted,
-          branchId: user.branchId,
-          branchCode: user.branch?.code ?? null,
-          branchName: user.branch?.name ?? null,
-        } as any;
-      },
-    }),
   ],
   events: {
     async signIn({ user, account, profile }) {
       if (account?.provider !== "google" || !user.email) return;
       const email = user.email.toLowerCase();
       if (!isGoogleEmailAllowed(email)) return;
-      const existing = await prisma.user.findUnique({ where: { email } });
-      if (existing) {
-        await prisma.user.update({
+      try {
+        await prisma.user.upsert({
           where: { email },
-          data: { name: user.name || existing.name },
-        });
-      } else {
-        await prisma.user.create({
-          data: {
+          create: {
             email,
             name: user.name || (profile as any)?.name || email,
             role: "STAFF",
             status: "PENDING",
             onboardingCompleted: false,
           },
+          update: {
+            name: user.name || undefined,
+          },
         });
+      } catch (e) {
+        console.error("[auth events.signIn] Google user sync failed:", e);
       }
     },
   },
@@ -123,17 +83,21 @@ export const authOptions: NextAuthOptions = {
       }
 
       if ((token as any).email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: String((token as any).email).toLowerCase() },
-          include: { branch: true },
-        });
-        if (dbUser) {
-          (token as any).role = roleSet.has(dbUser.role) ? dbUser.role : "STAFF";
-          (token as any).status = statusSet.has(dbUser.status) ? dbUser.status : "PENDING";
-          (token as any).onboardingCompleted = Boolean(dbUser.onboardingCompleted);
-          (token as any).branchId = dbUser.branchId;
-          (token as any).branchCode = dbUser.branch?.code ?? null;
-          (token as any).branchName = dbUser.branch?.name ?? null;
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: String((token as any).email).toLowerCase() },
+            include: { branch: true },
+          });
+          if (dbUser) {
+            (token as any).role = roleSet.has(dbUser.role) ? dbUser.role : "STAFF";
+            (token as any).status = statusSet.has(dbUser.status) ? dbUser.status : "PENDING";
+            (token as any).onboardingCompleted = Boolean(dbUser.onboardingCompleted);
+            (token as any).branchId = dbUser.branchId;
+            (token as any).branchCode = dbUser.branch?.code ?? null;
+            (token as any).branchName = dbUser.branch?.name ?? null;
+          }
+        } catch (e) {
+          console.error("[auth jwt] prisma.user lookup failed:", e);
         }
       }
       return token;

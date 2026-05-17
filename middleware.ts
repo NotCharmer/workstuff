@@ -10,11 +10,6 @@ export default async function middleware(req: NextRequest) {
   const { nextUrl } = req;
   const pathname = nextUrl.pathname;
 
-  // Local `next dev`: skip auth gates unless ENABLE_LOCAL_AUTH=true (see src/lib/auth.ts).
-  if (process.env.NODE_ENV === "development" && process.env.ENABLE_LOCAL_AUTH !== "true") {
-    return NextResponse.next();
-  }
-
   const token = await getToken({ req, secret: AUTH_SECRET });
   const isAuthed = Boolean(token);
   const isAuthApi = pathname.startsWith("/api/auth");

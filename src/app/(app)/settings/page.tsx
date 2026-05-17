@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
 import { AdminPanel } from "@/components/settings/admin-panel";
+import { TeamPanel } from "@/components/settings/team-panel";
 import {
   getOcrProviderName,
   getOpenAIApiKey,
@@ -131,6 +132,8 @@ export default async function SettingsPage() {
           ))}
         </CardContent>
       </Card>
+
+      {user.status === "ACTIVE" && <TeamPanel branchName={user.branchName} />}
 
       {(user.role === "ADMIN" || user.role === "BRANCH_MANAGER") && (
         <AdminPanel role={user.role} />

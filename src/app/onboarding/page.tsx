@@ -39,7 +39,7 @@ export default function OnboardingPage() {
         <CardHeader>
           <CardTitle className="text-2xl">השלמת הרשמה</CardTitle>
           <CardDescription>
-            זיהינו את חשבון Google המחוזי שלך. נא להשלים פרטים לפתיחת משתמש במערכת.
+            השלימו את פרטי המשתמש הפנימי שלכם במערכת. לאחר שליחה תמתינו לאישור מנהל.
           </CardDescription>
         </CardHeader>
         <CardContent>

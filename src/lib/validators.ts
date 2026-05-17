@@ -145,6 +145,13 @@ export const AdminUserCreateSchema = z.object({
   branchId: z.string().min(1),
 });
 
+/** Internal user created inside the app (after NextAuth login). */
+export const TeamUserCreateSchema = z.object({
+  email: z.string().trim().email(),
+  name: z.string().trim().min(2).max(120),
+  password: z.string().min(8).max(200),
+});
+
 export const AdminUserPatchSchema = z.object({
   role: z.enum(USER_ROLES).optional(),
   status: z.enum(USER_STATUSES).optional(),

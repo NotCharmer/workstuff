@@ -7,7 +7,7 @@ export default function PendingApprovalPage() {
         <CardHeader>
           <CardTitle className="text-2xl">החשבון ממתין לאישור</CardTitle>
           <CardDescription>
-            התחברת בהצלחה עם חשבון המחוז, אבל עדיין לא קיבלת הרשאה למערכת.
+            התחברתם בהצלחה, אבל החשבון עדיין לא אושר לשימוש במערכת.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">

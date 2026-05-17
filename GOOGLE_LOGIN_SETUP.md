@@ -175,13 +175,13 @@ When you're ready to deploy:
 1. In Vercel → Project → Settings → Environment Variables, set:
    - `DATABASE_URL` (Neon/Railway Postgres URL)
    - `NEXTAUTH_SECRET`
-   - `NEXTAUTH_URL` = `https://your-app.vercel.app` (or your real domain) — no trailing slash, no path
+   - `NEXTAUTH_URL` = `https://workstuff-omega.vercel.app` (or your real domain) — no trailing slash, no path
    - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
    - `DISTRICT_GOOGLE_DOMAIN`
    - `DEFAULT_BRANCH_CODE`, `DEFAULT_BRANCH_NAME`
    - `DEFAULT_ADMIN_EMAIL`, `DEFAULT_ADMIN_NAME`, `DEFAULT_ADMIN_PASSWORD`
 2. Back in Google Cloud Console → your OAuth client → add the production redirect URI:
-   - `https://your-app.vercel.app/api/auth/callback/google`
+   - `https://workstuff-omega.vercel.app/api/auth/callback/google`
 3. Redeploy. First deploy will run `prisma generate`; you'll want a one-off `prisma db push` against the prod DB (or wire up `prisma migrate deploy` if you switch to migrations).
 
 ---
