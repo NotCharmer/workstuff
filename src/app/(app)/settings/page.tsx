@@ -58,6 +58,15 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
 
+      {user.status === "ACTIVE" && (
+        <TeamPanel
+          branchName={user.branchName}
+          actorId={user.id}
+          actorRole={user.role}
+          canManageTeam={user.role === "ADMIN" || user.role === "BRANCH_MANAGER"}
+        />
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>{he.settings.ocrProvider}</CardTitle>
@@ -132,8 +141,6 @@ export default async function SettingsPage() {
           ))}
         </CardContent>
       </Card>
-
-      {user.status === "ACTIVE" && <TeamPanel branchName={user.branchName} />}
 
       {(user.role === "ADMIN" || user.role === "BRANCH_MANAGER") && (
         <AdminPanel role={user.role} />

@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
-import { getCurrentUser } from "@/lib/auth";
+import { AuthError, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ReviewPayloadSchema } from "@/lib/validators";
 import { he } from "@/lib/i18n/he";
-import { isTargetSubject } from "@/lib/upload/target-subjects";
+import {
+  filterRowsByTargetStudents,
+  TARGET_SUBJECT_FILTER_EMPTY_ERROR,
+} from "@/lib/upload/target-subjects";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 /**
  * Persist a reviewed batch.
@@ -14,122 +18,144 @@ export const runtime = "nodejs";
  * Student/Subject entities — it just sends names + grades.
  */
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
-
-  const body = await req.json().catch(() => null);
-  const parsed = ReviewPayloadSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { ok: false, error: parsed.error.issues[0]?.message ?? he.api.saveFailed },
-      { status: 400 }
-    );
-  }
-  const { fileName, rows, avgConfidence, imagePath } = parsed.data;
-  const allowedStudents = new Set(
-    rows.filter((row) => isTargetSubject(row.subject)).map((row) => row.studentName.trim())
-  );
-  const filteredRows = rows.filter((row) => allowedStudents.has(row.studentName.trim()));
-  if (filteredRows.length === 0) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          "לא נמצאו תלמידים עם ציון בפייתון, במיתוג או בפרוייקט גמר במערכות אלקטרוניות לשמירה.",
-      },
-      { status: 400 }
-    );
-  }
-
-  const cleanedExternalIds = filteredRows
-    .map((r) => r.externalId?.toString().trim() ?? "")
-    .filter((v) => v.length > 0);
-  const uniqueExternalIds = new Set(cleanedExternalIds);
-  const uniqueRatio =
-    cleanedExternalIds.length > 0 ? uniqueExternalIds.size / cleanedExternalIds.length : 0;
-
-  // Some school exports place "negative grades count" in an adjacent numeric column.
-  // If ids are low-entropy / repeated heavily, ignore externalId for this batch.
-  const useExternalId = cleanedExternalIds.length >= 3 && uniqueRatio >= 0.9;
-
-  const upload = await prisma.uploadSession.create({
-    data: {
-      branchId: user.branchId,
-      fileName,
-      imagePath,
-      status: "SAVED",
-      rowCount: filteredRows.length,
-      avgConfidence,
-      uploaderId: user.id,
-    },
-  });
-
-  const results: {
-    saved: number;
-    studentsCreated: number;
-    subjectsCreated: number;
-  } = { saved: 0, studentsCreated: 0, subjectsCreated: 0 };
-
-  // Small batch, sequential inserts are fine and keep the logic legible.
-  for (const row of filteredRows) {
-    const [firstName, ...rest] = row.studentName.trim().split(/\s+/);
-    const lastName = rest.join(" ") || "(unknown)";
-
-    const rowExternalId = row.externalId?.toString().trim();
-    const reliableExternalId = useExternalId && rowExternalId ? rowExternalId : null;
-
-    const studentWhere: Prisma.StudentWhereInput = reliableExternalId
-      ? { branchId: user.branchId, externalId: reliableExternalId }
-      : row.className
-        ? { branchId: user.branchId, firstName, lastName, className: row.className }
-        : { branchId: user.branchId, firstName, lastName };
-
-    let student = await prisma.student.findFirst({ where: studentWhere });
-    if (!student) {
-      student = await prisma.student.create({
-        data: {
-          firstName,
-          lastName,
-          branchId: user.branchId,
-          externalId: reliableExternalId,
-          className: row.className || null,
-          gender: "MALE",
-          avatarHue: Math.floor(Math.random() * 360),
-        },
-      });
-      results.studentsCreated++;
-    } else if (row.className && student.className !== row.className) {
-      await prisma.student.update({
-        where: { id: student.id },
-        data: { className: row.className },
-      });
+  try {
+    const user = await getCurrentUser();
+    if (user.status !== "ACTIVE") {
+      return NextResponse.json(
+        { ok: false, error: "החשבון אינו פעיל" },
+        { status: 403 }
+      );
+    }
+    if (!user.branchId) {
+      return NextResponse.json(
+        { ok: false, error: "אין סניף משויך לחשבון — פנו למנהל המערכת" },
+        { status: 400 }
+      );
     }
 
-    let subject = await prisma.subject.findFirst({
-      where: { branchId: user.branchId, name: row.subject },
-    });
-    if (!subject) {
-      const palette = ["#6366f1", "#10b981", "#f59e0b", "#0ea5e9", "#f43f5e", "#8b5cf6", "#14b8a6"];
-      subject = await prisma.subject.create({
-        data: {
-          branchId: user.branchId,
-          name: row.subject,
-          color: palette[Math.floor(Math.random() * palette.length)],
-        },
-      });
-      results.subjectsCreated++;
+    const body = await req.json().catch(() => null);
+    const parsed = ReviewPayloadSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { ok: false, error: parsed.error.issues[0]?.message ?? he.api.saveFailed },
+        { status: 400 }
+      );
     }
 
-    await prisma.grade.create({
-      data: {
-        studentId: student.id,
-        subjectId: subject.id,
-        value: row.grade,
-        source: "OCR",
-        uploadId: upload.id,
-      },
-    });
-    results.saved++;
-  }
+    const { fileName, rows, avgConfidence, imagePath } = parsed.data;
+    const filteredRows = filterRowsByTargetStudents(rows);
+    if (filteredRows.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: TARGET_SUBJECT_FILTER_EMPTY_ERROR },
+        { status: 400 }
+      );
+    }
 
-  return NextResponse.json({ ok: true, uploadId: upload.id, ...results });
+    const branchId = user.branchId;
+    const cleanedExternalIds = filteredRows
+      .map((r) => r.externalId?.toString().trim() ?? "")
+      .filter((v) => v.length > 0);
+    const uniqueExternalIds = new Set(cleanedExternalIds);
+    const uniqueRatio =
+      cleanedExternalIds.length > 0 ? uniqueExternalIds.size / cleanedExternalIds.length : 0;
+    const useExternalId = cleanedExternalIds.length >= 3 && uniqueRatio >= 0.9;
+
+    const results = await prisma.$transaction(async (tx) => {
+      const upload = await tx.uploadSession.create({
+        data: {
+          branchId,
+          fileName,
+          imagePath,
+          status: "SAVED",
+          rowCount: filteredRows.length,
+          avgConfidence,
+          uploaderId: user.id,
+        },
+      });
+
+      const out = { saved: 0, studentsCreated: 0, subjectsCreated: 0 };
+
+      for (const row of filteredRows) {
+        const [firstName, ...rest] = row.studentName.trim().split(/\s+/);
+        const lastName = rest.join(" ") || "(unknown)";
+
+        const rowExternalId = row.externalId?.toString().trim();
+        const reliableExternalId = useExternalId && rowExternalId ? rowExternalId : null;
+
+        const studentWhere: Prisma.StudentWhereInput = reliableExternalId
+          ? { branchId, externalId: reliableExternalId }
+          : row.className
+            ? { branchId, firstName, lastName, className: row.className }
+            : { branchId, firstName, lastName };
+
+        let student = await tx.student.findFirst({ where: studentWhere });
+        if (!student) {
+          student = await tx.student.create({
+            data: {
+              firstName,
+              lastName,
+              branchId,
+              externalId: reliableExternalId,
+              className: row.className || null,
+              gender: "MALE",
+              avatarHue: Math.floor(Math.random() * 360),
+            },
+          });
+          out.studentsCreated++;
+        } else if (row.className && student.className !== row.className) {
+          await tx.student.update({
+            where: { id: student.id },
+            data: { className: row.className },
+          });
+        }
+
+        let subject = await tx.subject.findFirst({
+          where: { branchId, name: row.subject },
+        });
+        if (!subject) {
+          const palette = [
+            "#6366f1",
+            "#10b981",
+            "#f59e0b",
+            "#0ea5e9",
+            "#f43f5e",
+            "#8b5cf6",
+            "#14b8a6",
+          ];
+          subject = await tx.subject.create({
+            data: {
+              branchId,
+              name: row.subject,
+              color: palette[Math.floor(Math.random() * palette.length)],
+            },
+          });
+          out.subjectsCreated++;
+        }
+
+        await tx.grade.create({
+          data: {
+            studentId: student.id,
+            subjectId: subject.id,
+            value: row.grade,
+            source: "OCR",
+            uploadId: upload.id,
+          },
+        });
+        out.saved++;
+      }
+
+      return { uploadId: upload.id, ...out };
+    });
+
+    return NextResponse.json({ ok: true, ...results });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
+    }
+    console.error("[upload/confirm]", error);
+    return NextResponse.json(
+      { ok: false, error: he.api.saveFailed },
+      { status: 500 }
+    );
+  }
 }

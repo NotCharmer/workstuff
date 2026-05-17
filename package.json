@@ -10,6 +10,7 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
+    "db:purge-students": "tsx scripts/delete-all-students.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {
@@ -48,6 +49,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.16.11",
     "@types/papaparse": "^5.5.2",

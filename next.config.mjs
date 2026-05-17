@@ -17,8 +17,13 @@ if (fs.existsSync(rootLocal)) {
 // is missing, auth calls can misbehave. Prefer explicit NEXTAUTH_URL in Vercel,
 // else fall back to the current deployment host at build time.
 const vercelOrigin = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "";
-const nextAuthUrlForBuild =
-  process.env.NEXTAUTH_URL?.trim() || vercelOrigin || "http://localhost:3000";
+const isDev = process.env.NODE_ENV === "development";
+const configuredNextAuth = process.env.NEXTAUTH_URL?.trim() || "";
+const nextAuthUrlForBuild = isDev
+  ? configuredNextAuth.includes("localhost")
+    ? configuredNextAuth
+    : "http://localhost:3000"
+  : configuredNextAuth || vercelOrigin || "http://localhost:3000";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

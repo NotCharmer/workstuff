@@ -13,10 +13,11 @@ export default async function middleware(req: NextRequest) {
   const token = await getToken({ req, secret: AUTH_SECRET });
   const isAuthed = Boolean(token);
   const isAuthApi = pathname.startsWith("/api/auth");
+  const isHealthApi = pathname === "/api/health/db";
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const isApi = pathname.startsWith("/api");
 
-  if (isAuthApi) return NextResponse.next();
+  if (isAuthApi || isHealthApi) return NextResponse.next();
 
   if (!isAuthed && isApi) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });

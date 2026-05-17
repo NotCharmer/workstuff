@@ -8,8 +8,6 @@ const roleSet = new Set<string>(USER_ROLES);
 const statusSet = new Set<string>(USER_STATUSES);
 const AUTH_SECRET =
   process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "dev-only-secret-change-me";
-const PRIMARY_LOGIN_EMAIL = "mercazhadash@gmail.com";
-
 export const authOptions: NextAuthOptions = {
   secret: AUTH_SECRET,
   session: { strategy: "jwt" },
@@ -25,7 +23,6 @@ export const authOptions: NextAuthOptions = {
         const email = credentials?.email?.toString().trim().toLowerCase();
         const password = credentials?.password?.toString() ?? "";
         if (!email || !password) return null;
-        if (email !== PRIMARY_LOGIN_EMAIL) return null;
 
         let user;
         try {

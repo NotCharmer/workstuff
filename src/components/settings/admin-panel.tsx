@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -115,6 +115,29 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
       await loadAll();
     } catch (e: any) {
       toast.error(e?.message ?? "Failed creating user");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function purgeAllStudents() {
+    if (
+      !window.confirm(
+        "למחוק את כל התלמידים במערכת? פעולה זו בלתי הפיכה. ציונים והערות שלהם יימחקו גם כן."
+      )
+    ) {
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/purge-students", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error ?? "מחיקה נכשלה");
+      toast.success(`נמחקו ${json.deletedStudents} תלמידים`);
+      await loadAll();
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "מחיקה נכשלה";
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -303,6 +326,32 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
           </ul>
         </CardContent>
       </Card>
+
+      {role === "ADMIN" && (
+        <Card className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-destructive">אזור מסוכן</CardTitle>
+            <CardDescription>
+              מחיקת כל התלמידים (למשל נתוני דמו). מקצועות וסשני העלאה נשארים; אפשר למחוק ידנית ב-Neon.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="destructive"
+              onClick={purgeAllStudents}
+              disabled={saving}
+              className="gap-2"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              מחק את כל התלמידים
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

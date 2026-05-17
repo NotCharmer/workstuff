@@ -1,15 +1,17 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { Loader2, LogIn } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-export default function LoginPage() {
-  const callbackUrl = "/dashboard";
-  const fixedEmail = "mercazhadash@gmail.com";
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl")?.trim() || "/dashboard";
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +22,7 @@ export default function LoginPage() {
     setError(null);
     try {
       const res = await signIn("credentials", {
-        email: fixedEmail,
+        email: email.trim().toLowerCase(),
         password,
         redirect: false,
         callbackUrl,
@@ -31,7 +33,7 @@ export default function LoginPage() {
       }
       if (!res.ok) {
         if (res.error === "CredentialsSignin") {
-          setError("הסיסמה שגויה או שהמשתמש לא זמין כרגע.");
+          setError("אימייל או סיסמה שגויים, או שהמשתמש לא קיים במערכת.");
         } else {
           setError(res.error ? `הכניסה נכשלה: ${res.error}` : "הכניסה נכשלה.");
         }
@@ -42,7 +44,7 @@ export default function LoginPage() {
         ? target
         : `${window.location.origin}${target.startsWith("/") ? target : `/${target}`}`;
     } catch {
-      setError("שגיאת רשת או שרת. נסו שוב.");
+      setError("שגיאת רשת או שרת. ודאו ש-DATABASE_URL זמין (במיוחד בלוקאל).");
     } finally {
       setPending(false);
     }
@@ -53,13 +55,23 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">כניסה למערכת</CardTitle>
-          <CardDescription>כניסה רגילה עם סיסמה עבור המשתמש הראשי.</CardDescription>
+          <CardDescription>הזינו אימייל וסיסמה של משתמש רשום במערכת.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-sm font-medium">שם משתמש</label>
-              <Input value={fixedEmail} disabled dir="ltr" />
+              <label htmlFor="email" className="text-sm font-medium">
+                אימייל
+              </label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                dir="ltr"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-1">
               <label htmlFor="password" className="text-sm font-medium">
@@ -83,5 +95,19 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

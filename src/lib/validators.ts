@@ -152,6 +152,11 @@ export const TeamUserCreateSchema = z.object({
   password: z.string().min(8).max(200),
 });
 
+export const TeamUserPatchSchema = z.object({
+  role: z.enum(USER_ROLES).optional(),
+  status: z.enum(USER_STATUSES).optional(),
+});
+
 export const AdminUserPatchSchema = z.object({
   role: z.enum(USER_ROLES).optional(),
   status: z.enum(USER_STATUSES).optional(),

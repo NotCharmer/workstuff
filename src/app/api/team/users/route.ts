@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { TeamUserCreateSchema } from "@/lib/validators";
-import { AuthError, getCurrentUser } from "@/lib/auth";
+import { AuthError, getCurrentUser, requireRole } from "@/lib/auth";
 
 export async function GET() {
   try {
@@ -37,7 +37,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const actor = await getCurrentUser();
+    const actor = await requireRole(["ADMIN", "BRANCH_MANAGER"]);
     if (actor.status !== "ACTIVE") {
       return NextResponse.json({ ok: false, error: "Account not active" }, { status: 403 });
     }
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
         email: parsed.data.email.toLowerCase(),
         name: parsed.data.name,
         role: "STAFF",
-        status: "ACTIVE",
+        status: "PENDING",
         branchId: actor.branchId,
         passwordHash,
         onboardingCompleted: true,

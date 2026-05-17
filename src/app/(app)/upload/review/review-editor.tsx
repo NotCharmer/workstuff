@@ -28,6 +28,36 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import type { ParseResult, ExtractedRow } from "@/lib/ocr/types";
 import { he } from "@/lib/i18n/he";
+import {
+  hasStudentsEligibleForTargetFilter,
+  TARGET_SUBJECT_FILTER_EMPTY_ERROR,
+} from "@/lib/upload/target-subjects-client";
+
+async function readApiJson(res: Response): Promise<{
+  ok?: boolean;
+  error?: string;
+  saved?: number;
+  studentsCreated?: number;
+}> {
+  const text = await res.text();
+  if (!text) {
+    return { error: res.ok ? undefined : `שגיאת שרת (${res.status})` };
+  }
+  try {
+    return JSON.parse(text) as {
+      ok?: boolean;
+      error?: string;
+      saved?: number;
+      studentsCreated?: number;
+    };
+  } catch {
+    return {
+      error: res.ok
+        ? he.review.toastSaveError
+        : `שגיאת שרת (${res.status}) — בדקו ש-DATABASE_URL מוגדר ב-Vercel`,
+    };
+  }
+}
 
 const SESSION_KEY = "lebronator:pending-review";
 
@@ -88,6 +118,8 @@ export function ReviewEditor() {
     [rows]
   );
 
+  const eligibleForSave = useMemo(() => hasStudentsEligibleForTargetFilter(rows), [rows]);
+
   function update(id: string, patch: Partial<EditableRow>) {
     setRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, ...patch, errors: undefined } : r))
@@ -111,36 +143,47 @@ export function ReviewEditor() {
     }
     if (!pending) return;
 
+    if (!hasStudentsEligibleForTargetFilter(validated)) {
+      toast.error(TARGET_SUBJECT_FILTER_EMPTY_ERROR);
+      return;
+    }
+
     setSaving(true);
     try {
-      const res = await fetch("/api/upload/confirm", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          fileName: pending.fileName,
-          rows: validated.map((r) => ({
-            id: r.id,
-            studentName: r.studentName,
-            subject: r.subject,
-            grade: Number(r.grade),
-            externalId: r.externalId || null,
-            className: r.className || null,
-            confidence: r.confidence,
-          })),
-          avgConfidence: pending.avgConfidence,
-        }),
-      });
-      const json = await res.json();
+      let res: Response;
+      try {
+        res = await fetch("/api/upload/confirm", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            fileName: pending.fileName,
+            rows: validated.map((r) => ({
+              id: r.id,
+              studentName: r.studentName,
+              subject: r.subject,
+              grade: Number(r.grade),
+              externalId: r.externalId || null,
+              className: r.className || null,
+              confidence: r.confidence,
+            })),
+            avgConfidence: pending.avgConfidence,
+          }),
+        });
+      } catch {
+        toast.error(he.uploadDrop.toastNet);
+        return;
+      }
+
+      const json = await readApiJson(res);
       if (!res.ok || !json.ok) {
         toast.error(json.error ?? he.review.toastSaveError);
         return;
       }
       sessionStorage.removeItem(SESSION_KEY);
-      toast.success(he.review.toastSaved(json.saved, json.studentsCreated));
+      toast.success(he.review.toastSaved(json.saved ?? 0, json.studentsCreated ?? 0));
       router.push("/dashboard");
       router.refresh();
-    } catch {
-      toast.error(he.uploadDrop.toastNet);
     } finally {
       setSaving(false);
     }
@@ -188,6 +231,20 @@ export function ReviewEditor() {
         />
         <SummaryStat label={he.review.summary.file} value={pending.fileName} small />
       </div>
+
+      {!eligibleForSave && rows.length > 0 && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              <CardTitle className="text-sm text-destructive">לא ניתן לשמור את הטבלה הזו</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 text-sm text-destructive/90">
+            {TARGET_SUBJECT_FILTER_EMPTY_ERROR}
+          </CardContent>
+        </Card>
+      )}
 
       {pending.warnings?.length > 0 && (
         <Card className="border-amber-200 bg-amber-50/60 dark:border-amber-900/40 dark:bg-amber-950/20">
@@ -339,7 +396,11 @@ export function ReviewEditor() {
             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
             {he.review.notSaved}
           </div>
-          <Button onClick={save} disabled={saving || rows.length === 0} className="gap-1">
+          <Button
+            onClick={save}
+            disabled={saving || rows.length === 0 || !eligibleForSave}
+            className="gap-1"
+          >
             {saving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />

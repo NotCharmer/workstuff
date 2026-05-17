@@ -57,7 +57,19 @@ export default async function DashboardPage({
   const classRaw = pickSearchParam(searchParams.class)?.trim() || null;
   const basisRaw = pickSearchParam(searchParams.basis)?.trim().toLowerCase();
   const gradeAggregation: GradeAggregationMode = basisRaw === "all" ? "all" : "latest";
-  const s = await getDashboardStats(averageMode, classRaw, gradeAggregation, user.branchId);
+
+  let s;
+  try {
+    s = await getDashboardStats(averageMode, classRaw, gradeAggregation, user.branchId);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[dashboard] getDashboardStats failed:", e);
+    throw new Error(
+      msg.includes("Can't reach database") || msg.includes("P1001")
+        ? "Can't reach database server"
+        : `Dashboard load failed: ${msg}`
+    );
+  }
 
   const passRate = percent(s.passCount, s.passCount + s.failCount);
 
