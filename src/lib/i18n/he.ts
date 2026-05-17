@@ -459,7 +459,7 @@ export const he = {
       range: "0–100",
     },
     toastInvalid: "תקנו את השורות המסומנות לפני השמירה.",
-    toastSaveError: "לא ניתן היה לשמור",
+    toastSaveError: "השמירה נכשלה",
     toastSaved: (saved: string | number, students: string | number) =>
       `נשמרו ${saved} ציונים · ${students} תלמידים חדשים`,
   },
