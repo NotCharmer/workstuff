@@ -12,6 +12,7 @@ import {
 import { he } from "@/lib/i18n/he";
 import { PrivateLessonsClient } from "./private-lessons-client";
 import { getCurrentUserOrRedirect } from "@/lib/auth";
+import { getViewBranchId } from "@/lib/branch-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +23,10 @@ function formatDurationLabel(minutes: number) {
 
 export default async function PrivateLessonsPage() {
   const user = await getCurrentUserOrRedirect();
+  const branchId = await getViewBranchId(user);
   const [students, lessons] = await Promise.all([
     prisma.student.findMany({
-      where: { branchId: user.branchId },
+      where: { branchId: branchId },
       select: {
         id: true,
         firstName: true,
@@ -35,7 +37,7 @@ export default async function PrivateLessonsPage() {
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     }),
     prisma.privateLesson.findMany({
-      where: { student: { branchId: user.branchId } },
+      where: { student: { branchId: branchId } },
       include: {
         student: {
           select: {

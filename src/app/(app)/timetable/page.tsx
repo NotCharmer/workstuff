@@ -5,13 +5,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimetableUploader } from "@/components/timetable/timetable-uploader";
 import { EditableTimetableGrid } from "@/components/timetable/editable-timetable-grid";
 import { getCurrentUserOrRedirect } from "@/lib/auth";
+import { getViewBranchId } from "@/lib/branch-scope";
 
 export const dynamic = "force-dynamic";
 
 export default async function TimetablePage() {
   const user = await getCurrentUserOrRedirect();
+  const branchId = await getViewBranchId(user);
   const entries = await prisma.timetableEntry.findMany({
-    where: { branchId: user.branchId },
+    where: { branchId: branchId },
     orderBy: [{ className: "asc" }, { startTime: "asc" }],
   });
 

@@ -86,8 +86,8 @@ async function main() {
   console.log("→ Seeding default branch");
   const branch = await prisma.branch.create({
     data: {
-      code: process.env.DEFAULT_BRANCH_CODE?.trim() || "main",
-      name: process.env.DEFAULT_BRANCH_NAME?.trim() || "Main Branch",
+      code: process.env.DEFAULT_BRANCH_CODE?.trim() || "rehovot",
+      name: process.env.DEFAULT_BRANCH_NAME?.trim() || "רחובות",
     },
   });
 

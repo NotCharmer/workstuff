@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { getViewBranchId } from "@/lib/branch-scope";
 import { NoteSchema } from "@/lib/validators";
 import { he } from "@/lib/i18n/he";
 
@@ -9,6 +10,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   const user = await getCurrentUser();
+    const branchId = await getViewBranchId(user);
 
   const body = await req.json().catch(() => null);
   const parsed = NoteSchema.safeParse(body);
@@ -20,7 +22,7 @@ export async function POST(
   }
 
   const student = await prisma.student.findFirst({
-    where: { id: params.id, branchId: user.branchId },
+    where: { id: params.id, branchId: branchId },
   });
   if (!student) {
     return NextResponse.json({ ok: false, error: he.api.studentNotFound }, { status: 404 });

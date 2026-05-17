@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { he } from "@/lib/i18n/he";
 import { getCurrentUserOrRedirect } from "@/lib/auth";
+import { getViewBranchId } from "@/lib/branch-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -156,10 +157,11 @@ export default async function StudentsPage({
   searchParams: SearchParams;
 }) {
   const user = await getCurrentUserOrRedirect();
-  const students = await fetchStudents(searchParams, user.branchId);
+  const branchId = await getViewBranchId(user);
+  const students = await fetchStudents(searchParams, branchId);
 
   const classes = await prisma.student.findMany({
-    where: { branchId: user.branchId, className: { not: null } },
+    where: { branchId, className: { not: null } },
     select: { className: true },
     distinct: ["className"],
   });

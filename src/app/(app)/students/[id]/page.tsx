@@ -39,6 +39,7 @@ import { computeStudentStats } from "@/lib/stats";
 import { he } from "@/lib/i18n/he";
 import { dateLocaleHe } from "@/lib/i18n";
 import { getCurrentUserOrRedirect } from "@/lib/auth";
+import { getViewBranchId } from "@/lib/branch-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -48,8 +49,9 @@ export default async function StudentDetailPage({
   params: { id: string };
 }) {
   const user = await getCurrentUserOrRedirect();
+  const branchId = await getViewBranchId(user);
   const student = await prisma.student.findFirst({
-    where: { id: params.id, branchId: user.branchId },
+    where: { id: params.id, branchId: branchId },
     include: {
       grades: {
         include: { subject: true },

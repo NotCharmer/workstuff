@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { getViewBranchId } from "@/lib/branch-scope";
 import { TimetablePayloadSchema } from "@/lib/validators";
 import { he } from "@/lib/i18n/he";
 
@@ -8,6 +9,7 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   const user = await getCurrentUser();
+    const branchId = await getViewBranchId(user);
   const body = await req.json().catch(() => null);
   const parsed = TimetablePayloadSchema.safeParse(body);
   if (!parsed.success) {
@@ -22,11 +24,11 @@ export async function POST(req: Request) {
 
   await prisma.$transaction(async (tx) => {
     for (const className of classes) {
-      await tx.timetableEntry.deleteMany({ where: { branchId: user.branchId, className } });
+      await tx.timetableEntry.deleteMany({ where: { branchId: branchId, className } });
     }
     await tx.timetableEntry.createMany({
       data: rows.map((r) => ({
-        branchId: user.branchId,
+        branchId: branchId,
         className: r.className.trim(),
         dayOfWeek: r.dayOfWeek.trim(),
         startTime: r.startTime.trim(),

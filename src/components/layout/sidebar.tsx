@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
+import { SchoolSwitcher } from "@/components/layout/school-switcher";
 
 const NAV = [
   { href: "/dashboard", label: he.nav.dashboard, icon: LayoutDashboard },
@@ -29,7 +30,7 @@ const NAV = [
   { href: "/settings", label: he.nav.settings, icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({ canSwitchSchools }: { canSwitchSchools: boolean }) {
   const pathname = usePathname();
 
   return (
@@ -43,6 +44,8 @@ export function Sidebar() {
           <div className="text-[11px] text-muted-foreground">{he.app.tagline}</div>
         </div>
       </div>
+
+      <SchoolSwitcher canSwitch={canSwitchSchools} />
 
       <nav className="mt-2 flex-1 space-y-1 px-3">
         {NAV.map((item) => {

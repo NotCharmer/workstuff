@@ -5,12 +5,14 @@ import { prisma } from "@/lib/db";
 import { he } from "@/lib/i18n/he";
 import { PatchStudentSchema } from "@/lib/validators";
 import { getCurrentUser } from "@/lib/auth";
+import { getViewBranchId } from "@/lib/branch-scope";
 
 export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
   const user = await getCurrentUser();
+    const branchId = await getViewBranchId(user);
   const body = await req.json().catch(() => null);
   const parsed = PatchStudentSchema.safeParse(body);
   if (!parsed.success) {
@@ -19,7 +21,7 @@ export async function PATCH(
 
   try {
     const updated = await prisma.student.updateMany({
-      where: { id: params.id, branchId: user.branchId },
+      where: { id: params.id, branchId: branchId },
       data: {
         gender: Object.prototype.hasOwnProperty.call(parsed.data, "gender")
           ? parsed.data.gender
@@ -30,7 +32,7 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: he.api.studentNotFound }, { status: 404 });
     }
     const student = await prisma.student.findFirst({
-      where: { id: params.id, branchId: user.branchId },
+      where: { id: params.id, branchId: branchId },
       select: { id: true, gender: true },
     });
     return NextResponse.json({ ok: true, student });
@@ -47,9 +49,10 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   const user = await getCurrentUser();
+    const branchId = await getViewBranchId(user);
   try {
     const deleted = await prisma.student.deleteMany({
-      where: { id: params.id, branchId: user.branchId },
+      where: { id: params.id, branchId: branchId },
     });
     if (deleted.count === 0) {
       return NextResponse.json({ ok: false, error: he.api.studentNotFound }, { status: 404 });

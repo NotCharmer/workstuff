@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { AuthError, getCurrentUser } from "@/lib/auth";
+import { requireViewBranchId } from "@/lib/branch-scope";
 import { prisma } from "@/lib/db";
 import { ReviewPayloadSchema } from "@/lib/validators";
 import { he } from "@/lib/i18n/he";
@@ -34,13 +35,6 @@ export async function POST(req: Request) {
         { status: 403 }
       );
     }
-    if (!user.branchId) {
-      return NextResponse.json(
-        { ok: false, error: "אין סניף משויך לחשבון — פנו למנהל המערכת" },
-        { status: 400 }
-      );
-    }
-
     const body = await req.json().catch(() => null);
     const parsed = ReviewPayloadSchema.safeParse(body);
     if (!parsed.success) {
@@ -59,7 +53,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const branchId = user.branchId;
+    const branchId = await requireViewBranchId(user);
     const cleanedExternalIds = filteredRows
       .map((r) => r.externalId?.toString().trim() ?? "")
       .filter((v) => v.length > 0);

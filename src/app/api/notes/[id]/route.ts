@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { getViewBranchId } from "@/lib/branch-scope";
 import { NoteSchema } from "@/lib/validators";
 import { he } from "@/lib/i18n/he";
 
@@ -9,6 +10,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   const user = await getCurrentUser();
+    const branchId = await getViewBranchId(user);
   const body = await req.json().catch(() => null);
   const parsed = NoteSchema.safeParse(body);
   if (!parsed.success) {
@@ -19,7 +21,7 @@ export async function PATCH(
   }
   try {
     const existing = await prisma.note.findFirst({
-      where: { id: params.id, student: { branchId: user.branchId } },
+      where: { id: params.id, student: { branchId: branchId } },
       select: { id: true },
     });
     if (!existing) {
@@ -41,9 +43,10 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   const user = await getCurrentUser();
+    const branchId = await getViewBranchId(user);
   try {
     const existing = await prisma.note.findFirst({
-      where: { id: params.id, student: { branchId: user.branchId } },
+      where: { id: params.id, student: { branchId: branchId } },
       select: { id: true },
     });
     if (!existing) {

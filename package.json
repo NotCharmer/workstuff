@@ -11,6 +11,7 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "db:purge-students": "tsx scripts/delete-all-students.ts",
+    "db:setup-schools": "tsx scripts/setup-schools.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

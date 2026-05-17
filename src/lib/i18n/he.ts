@@ -26,6 +26,14 @@ export const he = {
     analytics: "ניתוחים",
     settings: "הגדרות",
   },
+  schools: {
+    title: "בתי ספר",
+    loading: "טוען בתי ספר…",
+    empty: "ריק",
+    loadFailed: "טעינת בתי הספר נכשלה",
+    switchFailed: "מעבר בית ספר נכשל",
+    switched: (name: string) => `עברתם ל«${name}»`,
+  },
   topbar: {
     searchPlaceholder: "חיפוש: תלמיד, כיתה, מקצוע…",
     uploadGrades: "העלאת ציונים",

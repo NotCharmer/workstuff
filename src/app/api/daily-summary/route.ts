@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { getViewBranchId } from "@/lib/branch-scope";
 import {
   DEFAULT_SUMMARY_CONFIG,
   buildDailySummary,
@@ -10,6 +11,7 @@ import {
 
 export async function GET(req: Request) {
   const user = await getCurrentUser();
+    const branchId = await getViewBranchId(user);
   const { searchParams } = new URL(req.url);
   const date = searchParams.get("date");
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -26,7 +28,7 @@ export async function GET(req: Request) {
 
   const [privateLessons, classVisits] = await Promise.all([
     prisma.privateLesson.findMany({
-      where: { date, student: { branchId: user.branchId } },
+      where: { date, student: { branchId: branchId } },
       include: {
         student: {
           select: { firstName: true, lastName: true, className: true, gender: true },
@@ -35,7 +37,7 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "asc" },
     }),
     prisma.classVisit.findMany({
-      where: { date, branchId: user.branchId },
+      where: { date, branchId: branchId },
       orderBy: { createdAt: "asc" },
     }),
   ]);
