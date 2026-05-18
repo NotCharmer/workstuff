@@ -78,7 +78,7 @@ export function TeamPanel({ branchName, actorId, actorRole, canManageTeam }: Tea
 
   async function updateUser(
     userId: string,
-    patch: Partial<{ role: UserRole; status: UserStatus }>
+    patch: Partial<{ role: UserRole; status: UserStatus; password: string }>
   ) {
     setSaving(true);
     try {
@@ -89,10 +89,11 @@ export function TeamPanel({ branchName, actorId, actorRole, canManageTeam }: Tea
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error ?? he.team.updateFailed);
-      toast.success(he.team.updated);
+      toast.success(patch.password ? he.team.passwordReset : he.team.updated);
       await loadUsers();
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : he.team.updateFailed;
+      const fallback = patch.password ? he.team.passwordResetFailed : he.team.updateFailed;
+      const message = e instanceof Error ? e.message : fallback;
       toast.error(message);
     } finally {
       setSaving(false);
@@ -213,6 +214,22 @@ export function TeamPanel({ branchName, actorId, actorRole, canManageTeam }: Tea
                             </option>
                           ))}
                         </select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={saving}
+                          onClick={() => {
+                            const nextPassword = window.prompt(he.team.resetPasswordPlaceholder);
+                            if (!nextPassword) return;
+                            if (nextPassword.length < 8) {
+                              toast.error(he.team.resetPasswordPlaceholder);
+                              return;
+                            }
+                            void updateUser(u.id, { password: nextPassword });
+                          }}
+                        >
+                          {he.team.resetPasswordButton}
+                        </Button>
                       </div>
                     ) : (
                       <div className="flex gap-2">

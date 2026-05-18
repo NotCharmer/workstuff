@@ -1,4 +1,4 @@
-import { UploadCloud, ScanLine, ListChecks, Save } from "lucide-react";
+import { UploadCloud, ScanLine, ListChecks, Save, PenLine } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   Card,
@@ -7,7 +7,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UploadDropzone } from "./upload-dropzone";
+import { ManualEntryPanel } from "@/components/upload/manual-entry-panel";
 import { he } from "@/lib/i18n/he";
 
 export const dynamic = "force-dynamic";
@@ -51,9 +53,28 @@ export default function UploadPage() {
           <CardDescription>{he.upload.dropDesc}</CardDescription>
         </CardHeader>
         <CardContent>
-          <UploadDropzone />
+          <Tabs defaultValue="file" className="w-full">
+            <TabsList className="mb-4 grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="file" className="gap-2">
+                <UploadCloud className="h-4 w-4" />
+                {he.upload.tabFile}
+              </TabsTrigger>
+              <TabsTrigger value="manual" className="gap-2">
+                <PenLine className="h-4 w-4" />
+                {he.upload.tabManual}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="file">
+              <UploadDropzone />
+            </TabsContent>
+            <TabsContent value="manual">
+              <ManualEntryPanel />
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
   );
 }
+
+

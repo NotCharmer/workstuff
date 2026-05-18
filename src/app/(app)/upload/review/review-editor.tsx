@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Loader2,
   Plus,
+  PenLine,
   Save,
   Trash2,
 } from "lucide-react";
@@ -32,6 +33,12 @@ import {
   hasStudentsEligibleForTargetFilter,
   TARGET_SUBJECT_FILTER_EMPTY_ERROR,
 } from "@/lib/upload/target-subjects-client";
+import {
+  createEmptyRow,
+  createManualPendingReview,
+  PENDING_REVIEW_SESSION_KEY,
+  savePendingReviewToSession,
+} from "@/lib/upload/manual-review";
 
 async function readApiJson(res: Response): Promise<{
   ok?: boolean;
@@ -59,22 +66,12 @@ async function readApiJson(res: Response): Promise<{
   }
 }
 
-const SESSION_KEY = "lebronator:pending-review";
-
 type Pending = ParseResult & { fileName: string };
 
 type EditableRow = ExtractedRow & { errors?: Record<string, string> };
 
 function newRow(): EditableRow {
-  return {
-    id: `manual_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    studentName: "",
-    externalId: "",
-    className: "",
-    subject: "",
-    grade: 0,
-    confidence: 1,
-  };
+  return createEmptyRow();
 }
 
 function validate(rows: EditableRow[]) {
@@ -100,7 +97,8 @@ export function ReviewEditor() {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const raw = typeof window !== "undefined" ? sessionStorage.getItem(SESSION_KEY) : null;
+    const raw =
+      typeof window !== "undefined" ? sessionStorage.getItem(PENDING_REVIEW_SESSION_KEY) : null;
     if (raw) {
       try {
         const parsed = JSON.parse(raw) as Pending;
@@ -180,7 +178,7 @@ export function ReviewEditor() {
         toast.error(json.error ?? he.review.toastSaveError);
         return;
       }
-      sessionStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(PENDING_REVIEW_SESSION_KEY);
       toast.success(he.review.toastSaved(json.saved ?? 0, json.studentsCreated ?? 0));
       router.push("/dashboard");
       router.refresh();
@@ -198,12 +196,27 @@ export function ReviewEditor() {
         title={he.review.emptyTitle}
         description={he.review.emptyDesc}
         action={
-          <Button asChild>
-            <Link href="/upload" className="gap-1">
-              <ArrowLeft className="h-4 w-4 [dir=rtl]:-scale-x-100" />
-              {he.review.goUpload}
-            </Link>
-          </Button>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button
+              type="button"
+              className="gap-1"
+              onClick={() => {
+                const payload = createManualPendingReview(5);
+                savePendingReviewToSession(payload);
+                setPending(payload);
+                setRows(payload.rows.map((r) => ({ ...r })));
+              }}
+            >
+              <PenLine className="h-4 w-4" />
+              {he.review.startManual}
+            </Button>
+            <Button asChild variant="secondary">
+              <Link href="/upload" className="gap-1">
+                <ArrowLeft className="h-4 w-4 [dir=rtl]:-scale-x-100" />
+                {he.review.goUpload}
+              </Link>
+            </Button>
+          </div>
         }
       />
     );
@@ -503,3 +516,5 @@ function CellInput({
     </div>
   );
 }
+
+

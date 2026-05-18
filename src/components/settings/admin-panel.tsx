@@ -149,6 +149,7 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
       role: "ADMIN" | "BRANCH_MANAGER" | "STAFF";
       status: "PENDING" | "ACTIVE" | "BLOCKED";
       branchId: string;
+      password: string;
     }>
   ) {
     setSaving(true);
@@ -160,7 +161,7 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error ?? "Failed updating user");
-      toast.success("User updated");
+      toast.success(patch.password ? "Password reset" : "User updated");
       await loadAll();
     } catch (e: any) {
       toast.error(e?.message ?? "Failed updating user");
@@ -317,6 +318,25 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
                     <option value="BLOCKED">BLOCKED</option>
                   </select>
                   <div className="self-center text-xs text-muted-foreground">status: {u.status}</div>
+                </div>
+                <div className="mt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={saving}
+                    onClick={() => {
+                      const nextPassword = window.prompt("New password (min 8 chars)");
+                      if (!nextPassword) return;
+                      if (nextPassword.length < 8) {
+                        toast.error("Password must be at least 8 characters");
+                        return;
+                      }
+                      void updateUser(u.id, { password: nextPassword });
+                    }}
+                  >
+                    Reset password
+                  </Button>
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
                   current branch: {branchById.get(u.branchId ?? "")?.name ?? "—"}

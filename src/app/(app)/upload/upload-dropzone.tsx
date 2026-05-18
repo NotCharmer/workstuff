@@ -9,7 +9,9 @@ import { cn } from "@/lib/utils";
 import type { ParseResult } from "@/lib/ocr/types";
 import { he } from "@/lib/i18n/he";
 
-const SESSION_KEY = "lebronator:pending-review";
+import { PENDING_REVIEW_SESSION_KEY } from "@/lib/upload/manual-review";
+
+const SESSION_KEY = PENDING_REVIEW_SESSION_KEY;
 
 type PendingReview = ParseResult & { fileName: string };
 

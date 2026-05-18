@@ -246,7 +246,7 @@ export const he = {
   upload: {
     title: "העלאת ציונים",
     subtitle:
-      "אפשר להעלות תמונה (OCR), ‏PDF, או קובץ ‏CSV עם עמודות — ואז לבדוק לפני שמירה.",
+      "העלאת קובץ/תמונה (OCR) או הזנה ידנית בטבלה — ואז בדיקה לפני שמירה.",
     step1t: "1. העלאה",
     step1d: "תמונה, ‏PDF, או קובץ ‏CSV (Excel: שמרו כ־CSV).",
     step2t: "2. חילוץ",
@@ -257,6 +257,16 @@ export const he = {
     step4d: "אישור יוצר ציונים וכרטיסי תלמידים.",
     dropTitle: "שחררו קובץ או תמונה",
     dropDesc: "תמונה: שטוחה ומוארת. ‏CSV: שורת כותרת עם עמודות שם / מקצוע / ציון (ראו תבנית במטה).",
+    tabFile: "קובץ / תמונה",
+    tabManual: "הזנה ידנית",
+    manualTitle: "הזנת ציונים ידנית",
+    manualDesc:
+      "מלאו שורות בטבלה — שם תלמיד, כיתה, מקצוע וציון. אפשר להוסיף שורות בכל שלב לפני השמירה.",
+    manualStart: "התחלת הזנה ידנית",
+    manualRowCount: "שורות התחלה:",
+    manualStartCustom: "התחל",
+    manualHint:
+      "נשמרים רק תלמידים עם לפחות ציון במקצוע יעד (פייתון, חשמל, מיתוג וכו') — שאר הציונים של אותו תלמיד יישמרו גם כן.",
   },
   timetable: {
     title: "מערכת שעות",
@@ -435,6 +445,7 @@ export const he = {
     emptyTitle: "אין מה לבדוק",
     emptyDesc: "העלו קודם קובץ (תמונה, ‏PDF, או ‏CSV) בדף ההעלאה.",
     goUpload: "חזרה להעלאה",
+    startManual: "הזנה ידנית",
     doubleCheck: "אנא בדקו",
     tableTitle: "שורות שחולצו",
     tableDesc: "לחצו על תא לעריכה. הוסיפו שורות חסרות בלחצן למטה.",
@@ -503,6 +514,11 @@ export const he = {
     permissionsHint: "בחרו תפקיד וסטטוס «פעיל» כדי לאפשר כניסה למערכת.",
     roleLabel: "תפקיד",
     statusLabel: "סטטוס",
+    resetPasswordLabel: "סיסמה חדשה",
+    resetPasswordPlaceholder: "לפחות 8 תווים",
+    resetPasswordButton: "איפוס סיסמה",
+    passwordReset: "הסיסמה עודכנה",
+    passwordResetFailed: "איפוס הסיסמה נכשל",
     you: "אתם",
     viewOnlyHint: "רק מנהל יכול ליצור משתמשים ולשנות הרשאות.",
     roles: {

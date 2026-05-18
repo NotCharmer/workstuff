@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { TeamUserPatchSchema } from "@/lib/validators";
 import { AuthError, requireRole } from "@/lib/auth";
@@ -18,7 +19,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         { status: 400 }
       );
     }
-    if (!parsed.data.role && !parsed.data.status) {
+    if (!parsed.data.role && !parsed.data.status && !parsed.data.password) {
       return NextResponse.json({ ok: false, error: "Nothing to update" }, { status: 400 });
     }
 
@@ -48,9 +49,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       }
     }
 
-    const data: { role?: string; status?: string } = {};
+    const data: { role?: string; status?: string; passwordHash?: string } = {};
     if (parsed.data.role) data.role = parsed.data.role;
     if (parsed.data.status) data.status = parsed.data.status;
+    if (parsed.data.password) data.passwordHash = await hash(parsed.data.password, 12);
 
     const user = await prisma.user.update({
       where: { id: params.id },
