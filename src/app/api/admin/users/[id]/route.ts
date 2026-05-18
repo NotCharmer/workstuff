@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { AdminUserPatchSchema } from "@/lib/validators";
 import { AuthError, requireRole } from "@/lib/auth";
+import { canPatchAdminUser } from "@/lib/admin-user-permissions";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -16,13 +17,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       );
     }
 
-    if (parsed.data.branchId) {
-      const branch = await prisma.branch.findUnique({ where: { id: parsed.data.branchId } });
-      if (!branch) {
-        return NextResponse.json({ ok: false, error: "Branch not found" }, { status: 404 });
-      }
-    }
-
     const target = await prisma.user.findUnique({
       where: { id: params.id },
       select: { id: true, role: true, branchId: true },
@@ -30,18 +24,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (!target) {
       return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
     }
-    if (actor.role !== "ADMIN") {
-      if (!actor.branchId || target.branchId !== actor.branchId) {
-        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
-      }
-      if (target.role === "ADMIN" || parsed.data.role === "ADMIN") {
-        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
-      }
-      if (parsed.data.status === "BLOCKED") {
-        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
-      }
-      if (parsed.data.branchId && parsed.data.branchId !== actor.branchId) {
-        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    if (!canPatchAdminUser(actor, target, parsed.data)) {
+      return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    }
+
+    if (parsed.data.branchId) {
+      const branch = await prisma.branch.findUnique({ where: { id: parsed.data.branchId } });
+      if (!branch) {
+        return NextResponse.json({ ok: false, error: "Branch not found" }, { status: 404 });
       }
     }
 
