@@ -23,6 +23,9 @@ type SearchParams = {
 const IMPORTANT_SUBJECT_TOKENS = [
   "פייתון",
   "python",
+  "תקשוב ומערכות",
+  "תקשוב",
+  "מערכות",
   "חשמל ואלקטרוניקה",
   "פיסיקה",
   "פיזיקה",
