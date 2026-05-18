@@ -2,14 +2,13 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { getAuthSecret } from "@/lib/auth-secret";
 import { USER_ROLES, USER_STATUSES, type UserRole, type UserStatus } from "@/lib/enums";
 
 const roleSet = new Set<string>(USER_ROLES);
 const statusSet = new Set<string>(USER_STATUSES);
-const AUTH_SECRET =
-  process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "dev-only-secret-change-me";
 export const authOptions: NextAuthOptions = {
-  secret: AUTH_SECRET,
+  secret: getAuthSecret(),
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [
