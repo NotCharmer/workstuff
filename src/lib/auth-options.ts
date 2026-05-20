@@ -3,11 +3,11 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { USER_ROLES, USER_STATUSES, type UserRole, type UserStatus } from "@/lib/enums";
+import { getAuthSecret } from "@/lib/auth-secret";
 
 const roleSet = new Set<string>(USER_ROLES);
 const statusSet = new Set<string>(USER_STATUSES);
-const AUTH_SECRET =
-  process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "dev-only-secret-change-me";
+const AUTH_SECRET = getAuthSecret();
 export const authOptions: NextAuthOptions = {
   secret: AUTH_SECRET,
   session: { strategy: "jwt" },
@@ -78,6 +78,13 @@ export const authOptions: NextAuthOptions = {
             (token as any).branchId = dbUser.branchId;
             (token as any).branchCode = dbUser.branch?.code ?? null;
             (token as any).branchName = dbUser.branch?.name ?? null;
+          } else {
+            (token as any).role = "STAFF";
+            (token as any).status = "BLOCKED";
+            (token as any).onboardingCompleted = true;
+            (token as any).branchId = null;
+            (token as any).branchCode = null;
+            (token as any).branchName = null;
           }
         } catch (e) {
           console.error("[auth jwt] prisma.user lookup failed:", e);
