@@ -37,6 +37,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if (target.role === "ADMIN" || parsed.data.role === "ADMIN") {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
+      if (parsed.data.role === "BRANCH_MANAGER") {
+        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+      }
       if (parsed.data.status === "BLOCKED") {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
