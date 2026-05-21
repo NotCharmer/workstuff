@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   Copy,
   Loader2,
@@ -119,20 +119,25 @@ export function DailySummaryClient() {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
   }, [config]);
 
-  const loadVisits = useCallback(async (d: string) => {
-    setLoadingVisits(true);
-    try {
-      const res = await fetch(`/api/class-visits?date=${d}`);
-      const json = await res.json().catch(() => null);
-      if (json?.ok) setVisits(json.visits);
-    } finally {
-      setLoadingVisits(false);
-    }
-  }, []);
-
   useEffect(() => {
-    loadVisits(date);
-  }, [date, loadVisits]);
+    let cancelled = false;
+    const loadVisits = async () => {
+      setLoadingVisits(true);
+      setVisits([]);
+      try {
+        const res = await fetch(`/api/class-visits?date=${date}`);
+        const json = await res.json().catch(() => null);
+        if (!cancelled) setVisits(json?.ok ? json.visits : []);
+      } finally {
+        if (!cancelled) setLoadingVisits(false);
+      }
+    };
+
+    void loadVisits();
+    return () => {
+      cancelled = true;
+    };
+  }, [date]);
 
   function addVisit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -165,6 +170,8 @@ export function DailySummaryClient() {
   }
 
   function deleteVisit(id: string) {
+    const visit = visits.find((v) => v.id === id);
+    if (!visit || visit.date !== date || loadingVisits) return;
     if (!window.confirm(he.dailySummary.deleteVisitConfirm)) return;
     const previous = visits;
     setVisits((prev) => prev.filter((v) => v.id !== id));
