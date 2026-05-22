@@ -44,6 +44,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
     }
+    const nextBranchId = parsed.data.branchId ?? target.branchId;
+    if (parsed.data.status === "ACTIVE" && !nextBranchId) {
+      return NextResponse.json(
+        { ok: false, error: "Branch required before activating user" },
+        { status: 400 }
+      );
+    }
 
     const data: { role?: string; status?: string; branchId?: string; passwordHash?: string } = {};
     if (parsed.data.role) data.role = parsed.data.role;

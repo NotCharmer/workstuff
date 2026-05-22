@@ -1,23 +1,25 @@
 import { NextResponse } from "next/server";
 import { AuthError, requireRole } from "@/lib/auth";
+import { requireViewBranchId } from "@/lib/branch-scope";
 import { prisma } from "@/lib/db";
 
-/** ADMIN only — removes all students and cascaded grades/notes/private lessons. */
+/** ADMIN only — removes students in the active school and cascaded grades/notes/private lessons. */
 export async function POST() {
   try {
-    await requireRole(["ADMIN"]);
+    const user = await requireRole(["ADMIN"]);
+    const branchId = await requireViewBranchId(user);
     const [studentsBefore, gradesBefore, notesBefore] = await Promise.all([
-      prisma.student.count(),
-      prisma.grade.count(),
-      prisma.note.count(),
+      prisma.student.count({ where: { branchId } }),
+      prisma.grade.count({ where: { student: { branchId } } }),
+      prisma.note.count({ where: { student: { branchId } } }),
     ]);
 
-    await prisma.student.deleteMany();
+    await prisma.student.deleteMany({ where: { branchId } });
 
     const [studentsAfter, gradesAfter, notesAfter] = await Promise.all([
-      prisma.student.count(),
-      prisma.grade.count(),
-      prisma.note.count(),
+      prisma.student.count({ where: { branchId } }),
+      prisma.grade.count({ where: { student: { branchId } } }),
+      prisma.note.count({ where: { student: { branchId } } }),
     ]);
 
     return NextResponse.json({

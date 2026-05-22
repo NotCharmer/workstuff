@@ -94,20 +94,23 @@ export async function getDashboardStats(
   gradeAggregation: GradeAggregationMode = "latest",
   branchId?: string | null
 ): Promise<DashboardStats> {
+  if (!branchId) {
+    throw new Error("Branch required for dashboard stats");
+  }
   const [students, grades, uploads] = await Promise.all([
     prisma.student.findMany({
-      where: { branchId: branchId ?? null },
+      where: { branchId },
       select: { id: true, firstName: true, lastName: true, className: true },
     }),
     prisma.grade.findMany({
-      where: { student: { branchId: branchId ?? null } },
+      where: { student: { branchId } },
       include: {
         student: { select: { id: true, firstName: true, lastName: true, className: true } },
         subject: { select: { name: true, color: true, isImportant: true } },
       },
     }),
     prisma.uploadSession.findMany({
-      where: { branchId: branchId ?? null },
+      where: { branchId },
       orderBy: { createdAt: "desc" },
       take: 6,
     }),

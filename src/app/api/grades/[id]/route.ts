@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { AuthError, getCurrentUser } from "@/lib/auth";
 import { getViewBranchId } from "@/lib/branch-scope";
 import { he } from "@/lib/i18n/he";
 
@@ -9,9 +9,9 @@ export async function DELETE(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const user = await getCurrentUser();
-    const branchId = await getViewBranchId(user);
   try {
+    const user = await getCurrentUser();
+    const branchId = await getViewBranchId(user);
     const grade = await prisma.grade.findFirst({
       where: { id: params.id, student: { branchId: branchId } },
       select: { id: true },
@@ -22,6 +22,9 @@ export async function DELETE(
     await prisma.grade.delete({ where: { id: grade.id } });
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return NextResponse.json({ ok: false, error: he.api.gradeNotFound }, { status: 404 });
     }

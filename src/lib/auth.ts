@@ -1,6 +1,8 @@
 import { getServerSession } from "next-auth/next";
 import type { UserRole, UserStatus } from "./enums";
 import { authOptions } from "./auth-options";
+import { prisma } from "./db";
+import { USER_ROLES, USER_STATUSES } from "./enums";
 
 export type CurrentUser = {
   id: string;
@@ -23,29 +25,62 @@ export class AuthError extends Error {
   }
 }
 
-export async function getCurrentUser(): Promise<CurrentUser> {
+const roleSet = new Set<string>(USER_ROLES);
+const statusSet = new Set<string>(USER_STATUSES);
+
+type GetCurrentUserOptions = {
+  allowInactive?: boolean;
+};
+
+export async function getCurrentUser(options: GetCurrentUserOptions = {}): Promise<CurrentUser> {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id || !session.user.email || !session.user.name) {
+  if (!session?.user?.id) {
     throw new AuthError("Unauthorized", 401);
   }
-  return {
-    id: session.user.id,
-    email: session.user.email,
-    name: session.user.name,
-    role: session.user.role ?? "STAFF",
-    status: session.user.status ?? "PENDING",
-    onboardingCompleted: session.user.onboardingCompleted ?? false,
-    branchId: session.user.branchId ?? null,
-    branchCode: session.user.branchCode ?? null,
-    branchName: session.user.branchName ?? null,
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    include: { branch: true },
+  });
+  if (!dbUser) {
+    throw new AuthError("Unauthorized", 401);
+  }
+
+  const role: UserRole = roleSet.has(dbUser.role) ? (dbUser.role as UserRole) : "STAFF";
+  const status: UserStatus = statusSet.has(dbUser.status)
+    ? (dbUser.status as UserStatus)
+    : "PENDING";
+
+  const user: CurrentUser = {
+    id: dbUser.id,
+    email: dbUser.email,
+    name: dbUser.name,
+    role,
+    status,
+    onboardingCompleted: dbUser.onboardingCompleted,
+    branchId: dbUser.branchId ?? null,
+    branchCode: dbUser.branch?.code ?? null,
+    branchName: dbUser.branch?.name ?? null,
   };
+
+  if (!options.allowInactive) {
+    if (!user.onboardingCompleted) {
+      throw new AuthError("Onboarding required", 403);
+    }
+    if (user.status !== "ACTIVE") {
+      throw new AuthError("Account pending approval", 403);
+    }
+  }
+
+  return user;
+}
+
+export async function requireActiveUser(): Promise<CurrentUser> {
+  return getCurrentUser();
 }
 
 export async function requireRole(roles: UserRole[]): Promise<CurrentUser> {
-  const user = await getCurrentUser();
-  if (user.status !== "ACTIVE") {
-    throw new AuthError("Account pending approval", 403);
-  }
+  const user = await requireActiveUser();
   if (!roles.includes(user.role)) {
     throw new AuthError("Forbidden", 403);
   }
@@ -54,7 +89,20 @@ export async function requireRole(roles: UserRole[]): Promise<CurrentUser> {
 
 export async function getCurrentUserOrRedirect(): Promise<CurrentUser> {
   try {
-    return await getCurrentUser();
+    const user = await getCurrentUser({ allowInactive: true });
+    if (!user.onboardingCompleted) {
+      const { redirect } = await import("next/navigation");
+      redirect("/onboarding");
+    }
+    if (user.status !== "ACTIVE") {
+      const { redirect } = await import("next/navigation");
+      redirect("/pending-approval");
+    }
+    if (user.role !== "ADMIN" && !user.branchId) {
+      const { redirect } = await import("next/navigation");
+      redirect("/pending-approval");
+    }
+    return user;
   } catch (error) {
     if (error instanceof AuthError && error.status === 401) {
       const { redirect } = await import("next/navigation");

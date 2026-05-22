@@ -65,10 +65,11 @@ export const authOptions: NextAuthOptions = {
         (token as any).branchName = (user as any).branchName ?? null;
       }
 
-      if ((token as any).email) {
+      const tokenUserId = token.sub ? String(token.sub) : null;
+      if (tokenUserId) {
         try {
           const dbUser = await prisma.user.findUnique({
-            where: { email: String((token as any).email).toLowerCase() },
+            where: { id: tokenUserId },
             include: { branch: true },
           });
           if (dbUser) {
@@ -78,6 +79,13 @@ export const authOptions: NextAuthOptions = {
             (token as any).branchId = dbUser.branchId;
             (token as any).branchCode = dbUser.branch?.code ?? null;
             (token as any).branchName = dbUser.branch?.name ?? null;
+          } else {
+            (token as any).role = "STAFF";
+            (token as any).status = "PENDING";
+            (token as any).onboardingCompleted = false;
+            (token as any).branchId = null;
+            (token as any).branchCode = null;
+            (token as any).branchName = null;
           }
         } catch (e) {
           console.error("[auth jwt] prisma.user lookup failed:", e);
