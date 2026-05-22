@@ -3,6 +3,7 @@ import { parseGradeCsv, isCsvUpload } from "@/lib/csv/parse-grade-csv";
 import { parseGradeImage } from "@/lib/ocr";
 import type { ParseResult } from "@/lib/ocr/types";
 import { he } from "@/lib/i18n/he";
+import { AuthError, getCurrentUser } from "@/lib/auth";
 import {
   filterRowsByTargetStudents,
   TARGET_SUBJECT_FILTER_EMPTY_ERROR,
@@ -17,6 +18,7 @@ function applyOptionalTargetFilter(result: ParseResult): ParseResult {
 
 export async function POST(req: Request) {
   try {
+    await getCurrentUser();
     const form = await req.formData();
     const file = form.get("file");
 
@@ -72,6 +74,9 @@ export async function POST(req: Request) {
     }
     return NextResponse.json({ ok: true, fileName: file.name, ...filtered });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
+    }
     console.error("[upload/parse]", error);
     return NextResponse.json({ ok: false, error: he.api.saveFailed }, { status: 500 });
   }
