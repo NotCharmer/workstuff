@@ -37,7 +37,7 @@ delete process.env.NEXTAUTH_SECRET;
 delete process.env.AUTH_SECRET;
 Reflect.set(process.env, "NODE_ENV", "production");
 assert.throws(() => getAuthSecret(), /NEXTAUTH_SECRET/);
-if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+if (originalNodeEnv === undefined) Reflect.deleteProperty(process.env, "NODE_ENV");
 else Reflect.set(process.env, "NODE_ENV", originalNodeEnv);
 if (originalNextAuthSecret === undefined) delete process.env.NEXTAUTH_SECRET;
 else process.env.NEXTAUTH_SECRET = originalNextAuthSecret;
