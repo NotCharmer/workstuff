@@ -1,9 +1,14 @@
 import { ReviewEditor } from "./review-editor";
 import { he } from "@/lib/i18n/he";
+import { getCurrentUserOrRedirect } from "@/lib/auth";
+import { requireViewBranchId } from "@/lib/branch-scope";
 
 export const dynamic = "force-dynamic";
 
-export default function ReviewPage() {
+export default async function ReviewPage() {
+  const user = await getCurrentUserOrRedirect();
+  const activeBranchId = await requireViewBranchId(user);
+
   return (
     <div className="space-y-6">
       <div>
@@ -14,7 +19,7 @@ export default function ReviewPage() {
           {he.review.subtitle}
         </p>
       </div>
-      <ReviewEditor />
+      <ReviewEditor activeBranchId={activeBranchId} />
     </div>
   );
 }

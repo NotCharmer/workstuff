@@ -66,7 +66,7 @@ async function readApiJson(res: Response): Promise<{
   }
 }
 
-type Pending = ParseResult & { fileName: string };
+type Pending = ParseResult & { fileName: string; branchId?: string };
 
 type EditableRow = ExtractedRow & { errors?: Record<string, string> };
 
@@ -89,7 +89,7 @@ function validate(rows: EditableRow[]) {
   return { valid, rows: updated };
 }
 
-export function ReviewEditor() {
+export function ReviewEditor({ activeBranchId }: { activeBranchId: string }) {
   const router = useRouter();
   const [pending, setPending] = useState<Pending | null>(null);
   const [rows, setRows] = useState<EditableRow[]>([]);
@@ -140,6 +140,10 @@ export function ReviewEditor() {
       return;
     }
     if (!pending) return;
+    if (!pending.branchId) {
+      toast.error("טיוטת השמירה אינה משויכת לבית ספר — פענחו או הזינו מחדש לפני השמירה");
+      return;
+    }
 
     if (!hasStudentsEligibleForTargetFilter(validated)) {
       toast.error(TARGET_SUBJECT_FILTER_EMPTY_ERROR);
@@ -156,6 +160,7 @@ export function ReviewEditor() {
           credentials: "same-origin",
           body: JSON.stringify({
             fileName: pending.fileName,
+            branchId: pending.branchId,
             rows: validated.map((r) => ({
               id: r.id,
               studentName: r.studentName,
@@ -201,7 +206,7 @@ export function ReviewEditor() {
               type="button"
               className="gap-1"
               onClick={() => {
-                const payload = createManualPendingReview(5);
+                const payload = createManualPendingReview(5, activeBranchId);
                 savePendingReviewToSession(payload);
                 setPending(payload);
                 setRows(payload.rows.map((r) => ({ ...r })));

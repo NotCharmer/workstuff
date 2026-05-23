@@ -9,6 +9,7 @@ export type ExtractedRow = {
 };
 
 export type ParseResult = {
+  branchId?: string;
   rows: ExtractedRow[];
   avgConfidence: number;
   rawText?: string;

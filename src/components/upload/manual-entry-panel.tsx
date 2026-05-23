@@ -8,12 +8,12 @@ import { Input } from "@/components/ui/input";
 import { he } from "@/lib/i18n/he";
 import { createManualPendingReview, savePendingReviewToSession } from "@/lib/upload/manual-review";
 
-export function ManualEntryPanel() {
+export function ManualEntryPanel({ activeBranchId }: { activeBranchId: string }) {
   const router = useRouter();
   const [starterRows, setStarterRows] = useState("5");
 
   function startReview(rowCount: number) {
-    savePendingReviewToSession(createManualPendingReview(rowCount));
+    savePendingReviewToSession(createManualPendingReview(rowCount, activeBranchId));
     router.push("/upload/review");
   }
 

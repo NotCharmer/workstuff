@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UploadDropzone } from "./upload-dropzone";
 import { ManualEntryPanel } from "@/components/upload/manual-entry-panel";
 import { he } from "@/lib/i18n/he";
+import { getCurrentUserOrRedirect } from "@/lib/auth";
+import { requireViewBranchId } from "@/lib/branch-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +23,10 @@ const STEPS: { icon: LucideIcon; title: string; desc: string }[] = [
   { icon: Save, title: he.upload.step4t, desc: he.upload.step4d },
 ];
 
-export default function UploadPage() {
+export default async function UploadPage() {
+  const user = await getCurrentUserOrRedirect();
+  const activeBranchId = await requireViewBranchId(user);
+
   return (
     <div className="space-y-8">
       <div>
@@ -65,10 +70,10 @@ export default function UploadPage() {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="file">
-              <UploadDropzone />
+              <UploadDropzone activeBranchId={activeBranchId} />
             </TabsContent>
             <TabsContent value="manual">
-              <ManualEntryPanel />
+              <ManualEntryPanel activeBranchId={activeBranchId} />
             </TabsContent>
           </Tabs>
         </CardContent>

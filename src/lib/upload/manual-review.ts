@@ -2,7 +2,7 @@ import type { ExtractedRow, ParseResult } from "@/lib/ocr/types";
 
 export const PENDING_REVIEW_SESSION_KEY = "lebronator:pending-review";
 
-export type PendingReview = ParseResult & { fileName: string };
+export type PendingReview = ParseResult & { fileName: string; branchId: string };
 
 export function createEmptyRow(): ExtractedRow {
   return {
@@ -16,10 +16,11 @@ export function createEmptyRow(): ExtractedRow {
   };
 }
 
-export function createManualPendingReview(rowCount = 5): PendingReview {
+export function createManualPendingReview(rowCount: number, branchId: string): PendingReview {
   const rows = Array.from({ length: Math.max(1, rowCount) }, () => createEmptyRow());
   return {
     fileName: "הזנה ידנית",
+    branchId,
     rows,
     avgConfidence: 1,
     warnings: [],

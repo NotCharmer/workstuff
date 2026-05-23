@@ -12,6 +12,7 @@
     "db:studio": "prisma studio",
     "db:purge-students": "tsx scripts/delete-all-students.ts",
     "db:setup-schools": "tsx scripts/setup-schools.ts",
+    "test:critical": "tsx scripts/check-critical-fixes.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

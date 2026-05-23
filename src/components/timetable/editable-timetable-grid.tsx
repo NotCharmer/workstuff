@@ -91,9 +91,11 @@ function isValidTime(value: string): boolean {
 }
 
 export function EditableTimetableGrid({
+  branchId,
   className,
   initialRows,
 }: {
+  branchId: string;
   className: string;
   initialRows: Entry[];
 }) {
@@ -103,6 +105,7 @@ export function EditableTimetableGrid({
   const normalizedInitial = useMemo(() => initialRows.map(normalizeEntry), [initialRows]);
   const [rows, setRows] = useState<Entry[]>(normalizedInitial);
   const [baselineRows, setBaselineRows] = useState<Entry[]>(normalizedInitial);
+  const [draftBranchId, setDraftBranchId] = useState(branchId);
   const currentSnapshot = useMemo(() => serializeRows(rows), [rows]);
   const baselineSnapshot = useMemo(() => serializeRows(baselineRows), [baselineRows]);
   const hasUnsavedChanges = currentSnapshot !== baselineSnapshot;
@@ -240,6 +243,7 @@ export function EditableTimetableGrid({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          branchId: draftBranchId,
           rows: rows.map((r) => ({
             id: r.id,
             className: r.className,
@@ -265,7 +269,14 @@ export function EditableTimetableGrid({
     } finally {
       setSaving(false);
     }
-  }, [hasUnsavedChanges, invalidRows, rows, router]);
+  }, [draftBranchId, hasUnsavedChanges, invalidRows, rows, router]);
+
+  useEffect(() => {
+    if (hasUnsavedChanges) return;
+    setRows(normalizedInitial);
+    setBaselineRows(normalizedInitial);
+    setDraftBranchId(branchId);
+  }, [branchId, hasUnsavedChanges, normalizedInitial]);
 
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {

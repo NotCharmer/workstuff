@@ -7,6 +7,9 @@ export const ACTIVE_BRANCH_COOKIE = "lebronator_active_branch";
 /** Branch used for queries/uploads — ADMIN may switch via cookie; others use home branch. */
 export async function getViewBranchId(user: CurrentUser): Promise<string | null> {
   if (user.role !== "ADMIN") {
+    if (!user.branchId) {
+      throw new AuthError("אין בית ספר פעיל — פנו למנהל", 400);
+    }
     return user.branchId;
   }
 

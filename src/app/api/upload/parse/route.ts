@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { AuthError, getCurrentUser } from "@/lib/auth";
+import { requireViewBranchId } from "@/lib/branch-scope";
 import { parseGradeCsv, isCsvUpload } from "@/lib/csv/parse-grade-csv";
 import { parseGradeImage } from "@/lib/ocr";
 import type { ParseResult } from "@/lib/ocr/types";
@@ -17,6 +19,8 @@ function applyOptionalTargetFilter(result: ParseResult): ParseResult {
 
 export async function POST(req: Request) {
   try {
+    const user = await getCurrentUser();
+    const branchId = await requireViewBranchId(user);
     const form = await req.formData();
     const file = form.get("file");
 
@@ -43,7 +47,7 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
-      return NextResponse.json({ ok: true, fileName: file.name, ...filtered });
+      return NextResponse.json({ ok: true, fileName: file.name, branchId, ...filtered });
     }
 
     const allowed = [
@@ -70,8 +74,11 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    return NextResponse.json({ ok: true, fileName: file.name, ...filtered });
+    return NextResponse.json({ ok: true, fileName: file.name, branchId, ...filtered });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
+    }
     console.error("[upload/parse]", error);
     return NextResponse.json({ ok: false, error: he.api.saveFailed }, { status: 500 });
   }

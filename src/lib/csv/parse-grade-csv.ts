@@ -51,7 +51,6 @@ const ALIASES = {
   externalId: [
     "externalid",
     "student id",
-    "id",
     "מזהה",
     "מספר",
     "ת.ז",
