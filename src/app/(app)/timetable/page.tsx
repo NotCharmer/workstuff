@@ -5,13 +5,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimetableUploader } from "@/components/timetable/timetable-uploader";
 import { EditableTimetableGrid } from "@/components/timetable/editable-timetable-grid";
 import { getCurrentUserOrRedirect } from "@/lib/auth";
-import { getViewBranchId } from "@/lib/branch-scope";
+import { requireViewBranchId } from "@/lib/branch-scope";
 
 export const dynamic = "force-dynamic";
 
 export default async function TimetablePage() {
   const user = await getCurrentUserOrRedirect();
-  const branchId = await getViewBranchId(user);
+  const branchId = await requireViewBranchId(user);
   const entries = await prisma.timetableEntry.findMany({
     where: { branchId: branchId },
     orderBy: [{ className: "asc" }, { startTime: "asc" }],
@@ -38,7 +38,7 @@ export default async function TimetablePage() {
           <CardDescription>{he.timetable.uploadDesc}</CardDescription>
         </CardHeader>
         <CardContent>
-          <TimetableUploader />
+          <TimetableUploader activeBranchId={branchId} />
         </CardContent>
       </Card>
 
@@ -64,6 +64,7 @@ export default async function TimetablePage() {
             return (
               <TabsContent key={className} value={className}>
                 <EditableTimetableGrid
+                  branchId={branchId}
                   className={className}
                   initialRows={rows.map((r) => ({
                     id: r.id,

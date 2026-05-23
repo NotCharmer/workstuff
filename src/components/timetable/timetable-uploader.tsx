@@ -11,10 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { he } from "@/lib/i18n/he";
 import type { TimetableRow } from "@/lib/timetable/types";
 
-export function TimetableUploader() {
+export function TimetableUploader({ activeBranchId }: { activeBranchId: string }) {
   const router = useRouter();
   const [rows, setRows] = useState<TimetableRow[]>([]);
   const [fileName, setFileName] = useState("");
+  const [draftBranchId, setDraftBranchId] = useState(activeBranchId);
   const [busy, setBusy] = useState(false);
 
   const warnings = useMemo(
@@ -35,6 +36,7 @@ export function TimetableUploader() {
         return;
       }
       setRows(json.rows);
+      setDraftBranchId(json.branchId ?? activeBranchId);
       setFileName(json.fileName ?? file.name);
       toast.success(he.timetable.extracted(json.rows.length));
     } finally {
@@ -51,6 +53,7 @@ export function TimetableUploader() {
   }
 
   function addRow() {
+    if (rows.length === 0) setDraftBranchId(activeBranchId);
     setRows((prev) => [
       ...prev,
       {
@@ -74,7 +77,7 @@ export function TimetableUploader() {
       const res = await fetch("/api/timetable/confirm", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ rows }),
+        body: JSON.stringify({ branchId: draftBranchId, rows }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.ok) {

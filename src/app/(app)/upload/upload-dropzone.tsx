@@ -15,7 +15,7 @@ const SESSION_KEY = PENDING_REVIEW_SESSION_KEY;
 
 type PendingReview = ParseResult & { fileName: string };
 
-export function UploadDropzone() {
+export function UploadDropzone({ activeBranchId }: { activeBranchId: string }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -58,6 +58,7 @@ export function UploadDropzone() {
       }
       const payload: PendingReview = {
         fileName: json.fileName,
+        branchId: json.branchId ?? activeBranchId,
         rows: json.rows,
         avgConfidence: json.avgConfidence,
         warnings: json.warnings ?? [],

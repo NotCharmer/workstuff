@@ -11,6 +11,7 @@ export type TimetableRow = {
 };
 
 export type TimetableParseResult = {
+  branchId?: string;
   rows: TimetableRow[];
   avgConfidence: number;
   warnings: string[];
