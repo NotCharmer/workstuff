@@ -43,3 +43,8 @@ export function getOcrProviderName(): string {
 export function getOpenAIOcrModel(): string {
   return getStr("OPENAI_OCR_MODEL", "gpt-4o") || "gpt-4o";
 }
+
+/** First-login password for newly created STAFF users (team panel). */
+export function getDefaultStaffPassword(): string {
+  return getStr("DEFAULT_STAFF_PASSWORD", "Staff123!");
+}

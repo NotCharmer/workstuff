@@ -149,7 +149,8 @@ export const AdminUserCreateSchema = z.object({
 export const TeamUserCreateSchema = z.object({
   email: z.string().trim().email(),
   name: z.string().trim().min(2).max(120),
-  password: z.string().min(8).max(200),
+  /** Omit or leave empty to use DEFAULT_STAFF_PASSWORD on the server. */
+  password: z.string().min(8).max(200).optional(),
 });
 
 export const TeamUserPatchSchema = z.object({

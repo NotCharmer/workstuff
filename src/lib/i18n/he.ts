@@ -509,6 +509,9 @@ export const he = {
     fullName: "שם מלא",
     email: "אימייל",
     password: "סיסמה ראשונית",
+    passwordOptionalHint: (pw: string) =>
+      `אם השדה ריק — נקבעת סיסמת כניסה ראשונה: ${pw}`,
+    useDefaultPassword: "סיסמת ברירת מחדל",
     createButton: "יצירת משתמש",
     listTitle: "משתמשים בסניף",
     permissionsHint: "בחרו תפקיד וסטטוס «פעיל» כדי לאפשר כניסה למערכת.",
@@ -534,6 +537,8 @@ export const he = {
     loading: "טוען…",
     empty: "אין עדיין משתמשים בסניף.",
     created: "נוצר — הגדירו תפקיד וסטטוס «פעיל», ואז מסרו אימייל וסיסמה לעובד",
+    createdWithDefault: (pw: string) =>
+      `נוצר — סיסמת כניסה ראשונה: ${pw}. הגדירו «פעיל» ומסרו לעובד.`,
     updated: "הרשאות עודכנו",
     loadFailed: "טעינת רשימת המשתמשים נכשלה",
     createFailed: "יצירת המשתמש נכשלה",
