@@ -99,7 +99,7 @@ async function main() {
         "onboardingCompleted", "createdAt"
       ) VALUES (
         ${staffId}, ${demoStaffEmail}, ${demoStaffName}, ${staffHash}, ${branchId},
-        'STAFF', 'ACTIVE', true, NOW()
+        'STAFF', 'PENDING', false, NOW()
       )
     `;
     console.log(`Created demo staff user: ${demoStaffEmail}`);
@@ -110,8 +110,8 @@ async function main() {
         "passwordHash" = ${staffHash},
         "branchId" = ${branchId},
         role = 'STAFF',
-        status = 'ACTIVE',
-        "onboardingCompleted" = true
+        status = 'PENDING',
+        "onboardingCompleted" = false
       WHERE email = ${demoStaffEmail}
     `;
     console.log(`Updated demo staff user: ${demoStaffEmail}`);

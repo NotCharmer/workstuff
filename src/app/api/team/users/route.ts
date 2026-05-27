@@ -25,6 +25,7 @@ export async function GET() {
         name: true,
         role: true,
         status: true,
+        onboardingCompleted: true,
         createdAt: true,
       },
     });
@@ -71,15 +72,19 @@ export async function POST(req: Request) {
 
     const password = resolveStaffPassword(parsed.data.password);
     const passwordHash = await hash(password, 12);
+    const placeholderName =
+      parsed.data.name?.trim() ||
+      parsed.data.email.split("@")[0]?.trim() ||
+      "משתמש חדש";
     const user = await prisma.user.create({
       data: {
         email: parsed.data.email.toLowerCase(),
-        name: parsed.data.name,
+        name: placeholderName,
         role: "STAFF",
         status: "PENDING",
         branchId: actor.branchId,
         passwordHash,
-        onboardingCompleted: true,
+        onboardingCompleted: false,
       },
       select: {
         id: true,

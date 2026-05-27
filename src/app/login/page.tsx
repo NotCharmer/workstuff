@@ -67,12 +67,12 @@ function LoginForm() {
               <span dir="ltr">ChangeMe123!</span>
             </p>
             <p>
-              <strong className="text-foreground">צוות (משתמש חדש):</strong>{" "}
-              האימייל שיצרתם + <span dir="ltr">Staff123!</span> — רק אחרי שהמנהל הגדיר סטטוס «פעיל».
+              <strong className="text-foreground">עובד חדש — שלב 1:</strong> אימייל + סיסמה זמנית{" "}
+              <span dir="ltr">Staff123!</span>
             </p>
             <p>
-              <strong className="text-foreground">דמו צוות:</strong>{" "}
-              <span dir="ltr">staff@mercaz.local</span> / <span dir="ltr">Staff123!</span>
+              <strong className="text-foreground">עובד חדש — שלב 2:</strong> הגדרת שם וסיסמה אישית, ואז
+              המנהל מאשר וקובע תפקיד.
             </p>
           </div>
           <form onSubmit={onSubmit} className="space-y-4">

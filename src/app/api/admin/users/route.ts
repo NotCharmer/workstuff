@@ -55,14 +55,16 @@ export async function POST(req: Request) {
 
     const passwordHash = await hash(parsed.data.password, 12);
     const role = actor.role === "ADMIN" ? parsed.data.role : "STAFF";
+    const needsStaffSetup = role === "STAFF";
     const user = await prisma.user.create({
       data: {
         email: parsed.data.email.toLowerCase(),
         name: parsed.data.name,
         role,
-        status: "ACTIVE",
+        status: needsStaffSetup ? "PENDING" : "ACTIVE",
         branchId: targetBranchId,
         passwordHash,
+        onboardingCompleted: !needsStaffSetup,
       },
       select: {
         id: true,

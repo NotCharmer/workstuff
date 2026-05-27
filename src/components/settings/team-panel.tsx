@@ -16,6 +16,7 @@ type TeamUser = {
   name: string;
   role: UserRole;
   status: UserStatus;
+  onboardingCompleted?: boolean;
 };
 
 type TeamPanelProps = {
@@ -57,7 +58,7 @@ export function TeamPanel({ branchName, actorId, actorRole, canManageTeam }: Tea
   }, [loadUsers]);
 
   async function createUser() {
-    if (!name.trim() || !email.trim()) return;
+    if (!email.trim()) return;
     const customPassword = password.trim();
     setSaving(true);
     try {
@@ -65,7 +66,7 @@ export function TeamPanel({ branchName, actorId, actorRole, canManageTeam }: Tea
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          name: name.trim(),
+          ...(name.trim() ? { name: name.trim() } : {}),
           email: email.trim(),
           ...(customPassword ? { password: customPassword } : {}),
         }),
@@ -135,7 +136,11 @@ export function TeamPanel({ branchName, actorId, actorRole, canManageTeam }: Tea
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1 sm:col-span-2">
                 <label className="text-sm font-medium">{he.team.fullName}</label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="שם מלא" />
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={he.team.fullNameOptionalHint}
+                />
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium">{he.team.email}</label>
@@ -205,6 +210,9 @@ export function TeamPanel({ branchName, actorId, actorRole, canManageTeam }: Tea
                       <p className="text-muted-foreground" dir="ltr">
                         {u.email}
                       </p>
+                      {u.onboardingCompleted === false && (
+                        <p className="mt-1 text-xs text-amber-600">{he.team.profilePending}</p>
+                      )}
                     </div>
                     {canEdit ? (
                       <div className="flex flex-wrap gap-2">

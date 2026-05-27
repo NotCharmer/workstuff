@@ -145,11 +145,18 @@ export const AdminUserCreateSchema = z.object({
   branchId: z.string().min(1),
 });
 
+/** Staff completes profile after first login (name + personal password). */
+export const OnboardingSchema = z.object({
+  fullName: z.string().trim().min(2, he.validators.nameRequired).max(120),
+  password: z.string().min(8).max(200),
+});
+
 /** Internal user created inside the app (after NextAuth login). */
 export const TeamUserCreateSchema = z.object({
   email: z.string().trim().email(),
-  name: z.string().trim().min(2).max(120),
-  /** Omit or leave empty to use DEFAULT_STAFF_PASSWORD on the server. */
+  /** Optional — staff sets their name on first login if omitted. */
+  name: z.string().trim().min(2).max(120).optional(),
+  /** Temporary first-login password; staff replaces it on onboarding. Omit for DEFAULT_STAFF_PASSWORD. */
   password: z.string().min(8).max(200).optional(),
 });
 
