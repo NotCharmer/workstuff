@@ -55,9 +55,26 @@ function LoginForm() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">כניסה למערכת</CardTitle>
-          <CardDescription>הזינו אימייל וסיסמה של משתמש רשום במערכת.</CardDescription>
+          <CardDescription>
+            הזינו אימייל וסיסמה של משתמש רשום במערכת.
+          </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
+            <p>
+              <strong className="text-foreground">מנהל:</strong>{" "}
+              <span dir="ltr">mercazhadash@gmail.com</span> /{" "}
+              <span dir="ltr">ChangeMe123!</span>
+            </p>
+            <p>
+              <strong className="text-foreground">צוות (משתמש חדש):</strong>{" "}
+              האימייל שיצרתם + <span dir="ltr">Staff123!</span> — רק אחרי שהמנהל הגדיר סטטוס «פעיל».
+            </p>
+            <p>
+              <strong className="text-foreground">דמו צוות:</strong>{" "}
+              <span dir="ltr">staff@mercaz.local</span> / <span dir="ltr">Staff123!</span>
+            </p>
+          </div>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-1">
               <label htmlFor="email" className="text-sm font-medium">
