@@ -151,6 +151,14 @@ export const OnboardingSchema = z.object({
   password: z.string().min(8).max(200),
 });
 
+/** Self-registration after passing the staff entry gate. */
+export const StaffRegisterSchema = z.object({
+  email: z.string().trim().email(),
+  fullName: z.string().trim().min(2, he.validators.nameRequired).max(120),
+  password: z.string().min(8).max(200),
+  branchCode: z.string().trim().min(1),
+});
+
 /** Internal user created inside the app (after NextAuth login). */
 export const TeamUserCreateSchema = z.object({
   email: z.string().trim().email(),

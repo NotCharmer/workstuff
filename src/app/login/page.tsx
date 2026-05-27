@@ -7,20 +7,34 @@ import { Loader2, LogIn } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { he } from "@/lib/i18n/he";
 
 function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl")?.trim() || "/dashboard";
+  const showRegisterHint = searchParams.get("register") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    showRegisterHint ? he.staffGate.gateRequired : null
+  );
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPending(true);
     setError(null);
     try {
+      const gateRes = await fetch("/api/staff/gate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      if (gateRes.ok) {
+        window.location.href = "/register";
+        return;
+      }
+
       const res = await signIn("credentials", {
         email: email.trim().toLowerCase(),
         password,
@@ -56,18 +70,23 @@ function LoginForm() {
         <CardHeader>
           <CardTitle className="text-2xl">כניסה למערכת</CardTitle>
           <CardDescription>
-            הזינו אימייל וסיסמה של משתמש רשום במערכת.
+            משתמשים קיימים — אימייל וסיסמה אישית. עובדים חדשים — שער כניסה להרשמה.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="mb-4 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
             <p>
-              <strong className="text-foreground">עובד חדש — שלב 1:</strong> אימייל + סיסמה זמנית{" "}
-              <span dir="ltr">Staff123!</span>
+              <strong className="text-foreground">{he.staffGate.loginStep1Title}</strong>{" "}
+              {he.staffGate.loginStep1Body}{" "}
+              <span dir="ltr">staff@mercaz.local</span> + <span dir="ltr">Staff123!</span>
             </p>
             <p>
-              <strong className="text-foreground">עובד חדש — שלב 2:</strong> הגדרת שם וסיסמה אישית, ואז
-              המנהל מאשר וקובע תפקיד.
+              <strong className="text-foreground">{he.staffGate.loginStep2Title}</strong>{" "}
+              {he.staffGate.loginStep2Body}
+            </p>
+            <p>
+              <strong className="text-foreground">{he.staffGate.loginStep3Title}</strong>{" "}
+              {he.staffGate.loginStep3Body}
             </p>
           </div>
           <form onSubmit={onSubmit} className="space-y-4">
@@ -101,7 +120,7 @@ function LoginForm() {
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full gap-2" disabled={pending}>
               {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
-              כניסה
+              כניסה / המשך להרשמה
             </Button>
           </form>
         </CardContent>

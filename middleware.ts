@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { STAFF_GATE_COOKIE, verifyStaffGateToken } from "@/lib/staff-gate";
 
-const PUBLIC_PATHS = ["/login", "/pending-approval", "/onboarding"];
+const PUBLIC_PATHS = ["/login", "/pending-approval", "/onboarding", "/register"];
+const STAFF_GATE_API_PATHS = ["/api/staff/gate", "/api/staff/gate-check", "/api/staff/register"];
 const AUTH_SECRET =
   process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "dev-only-secret-change-me";
 
@@ -14,13 +16,23 @@ export default async function middleware(req: NextRequest) {
   const isAuthed = Boolean(token);
   const isAuthApi = pathname.startsWith("/api/auth");
   const isHealthApi = pathname === "/api/health/db";
+  const isStaffGateApi = STAFF_GATE_API_PATHS.includes(pathname);
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const isApi = pathname.startsWith("/api");
+  const hasStaffGate = verifyStaffGateToken(req.cookies.get(STAFF_GATE_COOKIE)?.value);
 
   if (isAuthApi || isHealthApi) return NextResponse.next();
 
   if (!isAuthed && isApi) {
+    if (isStaffGateApi) return NextResponse.next();
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isAuthed && pathname.startsWith("/register")) {
+    if (hasStaffGate) return NextResponse.next();
+    const loginUrl = new URL("/login", nextUrl);
+    loginUrl.searchParams.set("register", "1");
+    return NextResponse.redirect(loginUrl);
   }
 
   if (!isAuthed && !isPublic) {

@@ -2,6 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { isStaffGateEmail } from "@/lib/staff-gate";
 import { USER_ROLES, USER_STATUSES, type UserRole, type UserStatus } from "@/lib/enums";
 
 const roleSet = new Set<string>(USER_ROLES);
@@ -24,6 +25,8 @@ export const authOptions: NextAuthOptions = {
         const password = credentials?.password?.toString() ?? "";
         if (!email || !password) return null;
 
+        // Gate credentials are not a real user — use /api/staff/gate instead.
+        if (isStaffGateEmail(email)) return null;
         let user;
         try {
           user = await prisma.user.findUnique({

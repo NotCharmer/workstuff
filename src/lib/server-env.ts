@@ -48,3 +48,13 @@ export function getOpenAIOcrModel(): string {
 export function getDefaultStaffPassword(): string {
   return getStr("DEFAULT_STAFF_PASSWORD", "Staff123!");
 }
+
+/** Shared gate email — opens staff self-registration, not a real user account. */
+export function getStaffGateEmail(): string {
+  return getStr("STAFF_GATE_EMAIL", "staff@mercaz.local").toLowerCase();
+}
+
+/** Password for the staff entry gate (defaults to DEFAULT_STAFF_PASSWORD). */
+export function getStaffGatePassword(): string {
+  return getStr("STAFF_GATE_PASSWORD") || getDefaultStaffPassword();
+}

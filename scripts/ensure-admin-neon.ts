@@ -25,11 +25,8 @@ const adminEmail =
 const adminName = process.env.DEFAULT_ADMIN_NAME?.trim() || "מנהל מערכת";
 const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD?.trim() || "ChangeMe123!";
 const branchCode = process.env.DEFAULT_BRANCH_CODE?.trim() || "rehovot";
-const staffDefaultPassword =
-  process.env.DEFAULT_STAFF_PASSWORD?.trim() || "Staff123!";
-const demoStaffEmail =
-  process.env.DEFAULT_STAFF_DEMO_EMAIL?.trim().toLowerCase() || "staff@mercaz.local";
-const demoStaffName = process.env.DEFAULT_STAFF_DEMO_NAME?.trim() || "משתמש צוות לדוגמה";
+const staffGateEmail =
+  process.env.STAFF_GATE_EMAIL?.trim().toLowerCase() || "staff@mercaz.local";
 
 function newId() {
   return `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
@@ -86,35 +83,11 @@ async function main() {
     console.log(`Updated admin user: ${adminEmail}`);
   }
 
-  const staffHash = await hash(staffDefaultPassword, 12);
-  const staffExisting = await sql`
-    SELECT id FROM "User" WHERE email = ${demoStaffEmail} LIMIT 1
+  const removedDemo = await sql`
+    DELETE FROM "User" WHERE email = ${staffGateEmail} RETURNING id
   `;
-
-  if (staffExisting.length === 0) {
-    const staffId = newId();
-    await sql`
-      INSERT INTO "User" (
-        id, email, name, "passwordHash", "branchId", role, status,
-        "onboardingCompleted", "createdAt"
-      ) VALUES (
-        ${staffId}, ${demoStaffEmail}, ${demoStaffName}, ${staffHash}, ${branchId},
-        'STAFF', 'PENDING', false, NOW()
-      )
-    `;
-    console.log(`Created demo staff user: ${demoStaffEmail}`);
-  } else {
-    await sql`
-      UPDATE "User" SET
-        name = ${demoStaffName},
-        "passwordHash" = ${staffHash},
-        "branchId" = ${branchId},
-        role = 'STAFF',
-        status = 'PENDING',
-        "onboardingCompleted" = false
-      WHERE email = ${demoStaffEmail}
-    `;
-    console.log(`Updated demo staff user: ${demoStaffEmail}`);
+  if (removedDemo.length > 0) {
+    console.log(`Removed legacy demo user at gate email: ${staffGateEmail}`);
   }
 
   const users = await sql`
@@ -125,9 +98,8 @@ async function main() {
     JSON.stringify(
       {
         adminEmail,
-        demoStaffEmail,
-        defaultStaffPassword: staffDefaultPassword,
-        note: "Admin uses DEFAULT_ADMIN_PASSWORD. New staff uses DEFAULT_STAFF_PASSWORD when created without custom password.",
+        staffGateEmail,
+        note: "staff@mercaz.local is an entry gate only — staff self-register after gate login.",
         recentUsers: users,
       },
       null,
