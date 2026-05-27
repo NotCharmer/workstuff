@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { AuthError, requireRole } from "@/lib/auth";
+import { AuthError, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ACTIVE_BRANCH_COOKIE } from "@/lib/branch-scope";
 import { SCHOOL_CODES } from "@/lib/schools";
+import { getUserAccessibleBranchIds } from "@/lib/user-branches";
 
 const BodySchema = z.object({
   branchId: z.string().min(1),
@@ -11,7 +12,11 @@ const BodySchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    await requireRole(["ADMIN"]);
+    const user = await getCurrentUser();
+    if (user.status !== "ACTIVE") {
+      return NextResponse.json({ ok: false, error: "Account not active" }, { status: 403 });
+    }
+
     const body = await req.json().catch(() => null);
     const parsed = BodySchema.safeParse(body);
     if (!parsed.success) {
@@ -24,6 +29,14 @@ export async function POST(req: Request) {
     });
     if (!branch || !(SCHOOL_CODES as readonly string[]).includes(branch.code)) {
       return NextResponse.json({ ok: false, error: "בית ספר לא נמצא" }, { status: 404 });
+    }
+
+    if (user.role !== "ADMIN") {
+      const accessible = await getUserAccessibleBranchIds(user.id);
+      const allowedIds = accessible.length > 0 ? accessible : user.branchId ? [user.branchId] : [];
+      if (!allowedIds.includes(branch.id)) {
+        return NextResponse.json({ ok: false, error: "אין הרשאה לסניף זה" }, { status: 403 });
+      }
     }
 
     const res = NextResponse.json({ ok: true, branch });

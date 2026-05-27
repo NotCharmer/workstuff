@@ -3,6 +3,7 @@ import { AuthError, getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { SCHOOL_CODES } from "@/lib/schools";
 import { getViewBranchId } from "@/lib/branch-scope";
+import { getUserAccessibleBranchIds, userCanSwitchBranches } from "@/lib/user-branches";
 
 export async function GET() {
   try {
@@ -12,11 +13,18 @@ export async function GET() {
     }
 
     const activeBranchId = await getViewBranchId(user);
+    const accessibleIds =
+      user.role === "ADMIN" ? [] : await getUserAccessibleBranchIds(user.id);
+
+    const branchWhere =
+      user.role === "ADMIN"
+        ? { code: { in: [...SCHOOL_CODES] } }
+        : accessibleIds.length > 0
+          ? { id: { in: accessibleIds } }
+          : { id: user.branchId ?? "__none__" };
+
     const branches = await prisma.branch.findMany({
-      where:
-        user.role === "ADMIN"
-          ? { code: { in: [...SCHOOL_CODES] } }
-          : { id: user.branchId ?? "__none__" },
+      where: branchWhere,
       orderBy: { name: "asc" },
       select: {
         id: true,
@@ -26,11 +34,13 @@ export async function GET() {
       },
     });
 
+    const canSwitch = await userCanSwitchBranches(user.id, user.role);
+
     return NextResponse.json({
       ok: true,
       branches,
       activeBranchId,
-      canSwitch: user.role === "ADMIN",
+      canSwitch,
     });
   } catch (error) {
     if (error instanceof AuthError) {

@@ -156,7 +156,7 @@ export const StaffRegisterSchema = z.object({
   email: z.string().trim().email(),
   fullName: z.string().trim().min(2, he.validators.nameRequired).max(120),
   password: z.string().min(8).max(200),
-  branchCode: z.string().trim().min(1),
+  branchCodes: z.array(z.string().trim().min(1)).min(1, he.register.branchRequired),
 });
 
 /** Internal user created inside the app (after NextAuth login). */

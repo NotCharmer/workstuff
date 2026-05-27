@@ -7,6 +7,11 @@ import {
   STAFF_GATE_COOKIE,
   verifyStaffGateToken,
 } from "@/lib/staff-gate";
+import {
+  formatRequestedBranchCodes,
+  resolveBranchIdsFromCodes,
+  syncUserBranchAccess,
+} from "@/lib/user-branches";
 import { he } from "@/lib/i18n/he";
 
 function gateDenied() {
@@ -33,14 +38,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: he.staffGate.reservedEmail }, { status: 400 });
   }
 
-  const branch = await prisma.branch.findUnique({
-    where: { code: parsed.data.branchCode },
-    select: { id: true, code: true },
-  });
-  if (!branch) {
+  const branchResult = await resolveBranchIdsFromCodes(parsed.data.branchCodes);
+  if (!branchResult.ok) {
     return NextResponse.json({ ok: false, error: he.staffGate.branchNotFound }, { status: 400 });
   }
 
+  const branches = branchResult.branches;
+  const primaryBranch = branches[0];
   const passwordHash = await hash(parsed.data.password, 12);
 
   try {
@@ -51,8 +55,8 @@ export async function POST(req: NextRequest) {
         passwordHash,
         role: "STAFF",
         status: "PENDING",
-        branchId: branch.id,
-        requestedBranchCode: branch.code,
+        branchId: primaryBranch.id,
+        requestedBranchCode: formatRequestedBranchCodes(branches.map((b) => b.code)),
         onboardingCompleted: true,
       },
       select: {
@@ -62,6 +66,11 @@ export async function POST(req: NextRequest) {
         status: true,
       },
     });
+
+    await syncUserBranchAccess(
+      user.id,
+      branches.map((b) => b.id)
+    );
 
     const res = NextResponse.json({ ok: true, user }, { status: 201 });
     res.cookies.set(STAFF_GATE_COOKIE, "", { path: "/", maxAge: 0 });

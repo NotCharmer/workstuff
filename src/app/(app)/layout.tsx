@@ -1,15 +1,17 @@
 import { getCurrentUserOrRedirect } from "@/lib/auth";
 import { getViewBranchContext } from "@/lib/branch-scope";
+import { userCanSwitchBranches } from "@/lib/user-branches";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/topbar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUserOrRedirect();
   const view = await getViewBranchContext(user);
+  const canSwitchSchools = await userCanSwitchBranches(user.id, user.role);
 
   return (
     <div className="flex min-h-screen gradient-surface">
-      <Sidebar canSwitchSchools={user.role === "ADMIN"} />
+      <Sidebar canSwitchSchools={canSwitchSchools} />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           user={{

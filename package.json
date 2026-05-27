@@ -13,6 +13,7 @@
     "db:purge-students": "tsx scripts/delete-all-students.ts",
     "db:setup-schools": "tsx scripts/setup-schools.ts",
     "db:ensure-admin": "tsx scripts/ensure-admin-neon.ts",
+    "db:migrate-user-branches": "tsx scripts/migrate-user-branches-neon.ts",
     "db:reset-password": "tsx scripts/reset-user-password-neon.ts",
     "postinstall": "prisma generate"
   },

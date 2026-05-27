@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SCHOOLS, type SchoolCode } from "@/lib/schools";
 import { he } from "@/lib/i18n/he";
+import { cn } from "@/lib/utils";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [branchCode, setBranchCode] = useState<SchoolCode>(SCHOOLS[0].code);
+  const [branchCodes, setBranchCodes] = useState<SchoolCode[]>([]);
   const [pending, setPending] = useState(false);
   const [checkingGate, setCheckingGate] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,10 +42,20 @@ export default function RegisterPage() {
     };
   }, [router]);
 
+  function toggleBranch(code: SchoolCode) {
+    setBranchCodes((prev) =>
+      prev.includes(code) ? prev.filter((item) => item !== code) : [...prev, code]
+    );
+  }
+
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
 
+    if (branchCodes.length === 0) {
+      setError(he.register.branchRequired);
+      return;
+    }
     if (password.length < 8) {
       setError(he.register.passwordTooShort);
       return;
@@ -59,7 +70,12 @@ export default function RegisterPage() {
       const res = await fetch("/api/staff/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), fullName: fullName.trim(), password, branchCode }),
+        body: JSON.stringify({
+          email: email.trim(),
+          fullName: fullName.trim(),
+          password,
+          branchCodes,
+        }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.ok) {
@@ -134,24 +150,33 @@ export default function RegisterPage() {
                 minLength={2}
               />
             </div>
-            <div className="space-y-1">
-              <label htmlFor="branch" className="text-sm font-medium">
-                {he.register.branch}
-              </label>
-              <select
-                id="branch"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={branchCode}
-                onChange={(e) => setBranchCode(e.target.value as SchoolCode)}
-                required
-              >
-                {SCHOOLS.map((school) => (
-                  <option key={school.code} value={school.code}>
-                    {school.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium">{he.register.branches}</legend>
+              <p className="text-xs text-muted-foreground">{he.register.branchesHint}</p>
+              <ul className="space-y-2 rounded-lg border border-border/60 p-3">
+                {SCHOOLS.map((school) => {
+                  const checked = branchCodes.includes(school.code);
+                  return (
+                    <li key={school.code}>
+                      <label
+                        className={cn(
+                          "flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors",
+                          checked ? "bg-primary/10" : "hover:bg-muted/50"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleBranch(school.code)}
+                          className="h-4 w-4 rounded border-input"
+                        />
+                        <span>{school.name}</span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </fieldset>
             <div className="space-y-1">
               <label htmlFor="password" className="text-sm font-medium">
                 {he.register.password}

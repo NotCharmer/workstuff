@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { parseRequestedBranchCodes } from "@/lib/user-branches";
+import { schoolNameForCode } from "@/lib/schools";
 
 type Branch = {
   id: string;
@@ -272,7 +274,10 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
                 )}
                 {u.requestedBranchCode && (
                   <div className="mb-2 text-xs text-muted-foreground">
-                    requested branch: {u.requestedBranchCode}
+                    סניפים מבוקשים:{" "}
+                    {parseRequestedBranchCodes(u.requestedBranchCode)
+                      .map((code) => schoolNameForCode(code) ?? code)
+                      .join(" · ")}
                   </div>
                 )}
                 <div className="grid gap-2 sm:grid-cols-2">
