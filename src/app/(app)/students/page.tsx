@@ -47,6 +47,9 @@ const REQUIRED_SUBJECT_FILTER = {
     { subject: { name: { contains: "Python" } } },
     { subject: { name: { contains: "electronics" } } },
     { subject: { name: { contains: "lab" } } },
+    { subject: { name: { contains: "תקשוב ומערכות" } } },
+    { subject: { name: { contains: "תקשוב" } } },
+    { subject: { name: { contains: "מערכות" } } },
   ],
 };
 
