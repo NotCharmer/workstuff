@@ -62,11 +62,6 @@ function LoginForm() {
         <CardContent>
           <div className="mb-4 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
             <p>
-              <strong className="text-foreground">מנהל:</strong>{" "}
-              <span dir="ltr">mercazhadash@gmail.com</span> /{" "}
-              <span dir="ltr">ChangeMe123!</span>
-            </p>
-            <p>
               <strong className="text-foreground">עובד חדש — שלב 1:</strong> אימייל + סיסמה זמנית{" "}
               <span dir="ltr">Staff123!</span>
             </p>
