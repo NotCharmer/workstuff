@@ -29,7 +29,8 @@ model User {
   branchAccess UserBranchAccess[]
   notes      Note[]
   uploads    UploadSession[]
-  dailyTasks DailyTask[]
+  authoredDailyTasks DailyTask[] @relation("DailyTaskAuthor")
+  assignedDailyTasks DailyTask[] @relation("DailyTaskAssignee")
 
   @@index([branchId])
 }
@@ -157,20 +158,24 @@ model UploadSession {
 }
 
 model DailyTask {
-  id        String   @id @default(cuid())
-  branchId  String?
-  authorId  String?
-  title     String
-  done      Boolean  @default(false)
-  date      String   // ISO date: "YYYY-MM-DD"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  branchId   String?
+  authorId   String?
+  assigneeId String?
+  title      String
+  done       Boolean  @default(false)
+  date       String   // ISO date: "YYYY-MM-DD"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  author   User?   @relation("DailyTaskAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  assignee User?   @relation("DailyTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
 
   @@index([branchId])
   @@index([date])
+  @@index([assigneeId])
+  @@index([branchId, date])
 }
 
 model ClassVisit {

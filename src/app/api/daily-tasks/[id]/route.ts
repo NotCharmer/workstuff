@@ -1,38 +1,58 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { AuthError, getCurrentUser } from "@/lib/auth";
 import { getViewBranchId } from "@/lib/branch-scope";
+import {
+  assertCanDeleteTask,
+  assertCanModifyTask,
+  loadTaskForUser,
+  taskInclude,
+} from "@/lib/daily-task-access";
 import { PatchDailyTaskSchema } from "@/lib/validators";
 import { he } from "@/lib/i18n/he";
+import { prisma } from "@/lib/db";
 
 export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const user = await getCurrentUser();
-    const branchId = await getViewBranchId(user);
-  const body = await req.json().catch(() => null);
-  const parsed = PatchDailyTaskSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { ok: false, error: parsed.error.issues[0]?.message ?? he.api.invalidInput },
-      { status: 400 }
-    );
-  }
   try {
-    const updated = await prisma.dailyTask.updateMany({
-      where: { id: params.id, branchId: branchId },
-      data: parsed.data,
-    });
-    if (updated.count === 0) {
-      return NextResponse.json({ ok: false, error: "המשימה לא נמצאה" }, { status: 404 });
+    const user = await getCurrentUser();
+    if (user.status !== "ACTIVE") {
+      return NextResponse.json({ ok: false, error: "Account not active" }, { status: 403 });
     }
-    const task = await prisma.dailyTask.findFirst({
-      where: { id: params.id, branchId: branchId },
+
+    const branchId = await getViewBranchId(user);
+    const task = await loadTaskForUser(params.id, branchId);
+    if (!task) {
+      return NextResponse.json({ ok: false, error: he.dailyTasks.taskNotFound }, { status: 404 });
+    }
+
+    assertCanModifyTask(user, task);
+
+    const body = await req.json().catch(() => null);
+    const parsed = PatchDailyTaskSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { ok: false, error: parsed.error.issues[0]?.message ?? he.api.invalidInput },
+        { status: 400 }
+      );
+    }
+
+    const updated = await prisma.dailyTask.update({
+      where: { id: params.id },
+      data: parsed.data,
+      include: taskInclude,
     });
-    return NextResponse.json({ ok: true, task });
-  } catch {
-    return NextResponse.json({ ok: false, error: "המשימה לא נמצאה" }, { status: 404 });
+
+    return NextResponse.json({ ok: true, task: updated });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
+    }
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return NextResponse.json({ ok: false, error: he.dailyTasks.forbidden }, { status: 403 });
+    }
+    return NextResponse.json({ ok: false, error: he.dailyTasks.taskNotFound }, { status: 404 });
   }
 }
 
@@ -40,17 +60,29 @@ export async function DELETE(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const user = await getCurrentUser();
-    const branchId = await getViewBranchId(user);
   try {
-    const deleted = await prisma.dailyTask.deleteMany({
-      where: { id: params.id, branchId: branchId },
-    });
-    if (deleted.count === 0) {
-      return NextResponse.json({ ok: false, error: "המשימה לא נמצאה" }, { status: 404 });
+    const user = await getCurrentUser();
+    if (user.status !== "ACTIVE") {
+      return NextResponse.json({ ok: false, error: "Account not active" }, { status: 403 });
     }
+
+    const branchId = await getViewBranchId(user);
+    const task = await loadTaskForUser(params.id, branchId);
+    if (!task) {
+      return NextResponse.json({ ok: false, error: he.dailyTasks.taskNotFound }, { status: 404 });
+    }
+
+    assertCanDeleteTask(user, task);
+
+    await prisma.dailyTask.delete({ where: { id: params.id } });
     return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ ok: false, error: "המשימה לא נמצאה" }, { status: 404 });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
+    }
+    if (error instanceof Error && error.message === "FORBIDDEN") {
+      return NextResponse.json({ ok: false, error: he.dailyTasks.forbidden }, { status: 403 });
+    }
+    return NextResponse.json({ ok: false, error: he.dailyTasks.taskNotFound }, { status: 404 });
   }
 }

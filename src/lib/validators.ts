@@ -45,6 +45,8 @@ export type ManualGradeInput = z.infer<typeof ManualGradeSchema>;
 export const DailyTaskSchema = z.object({
   title: z.string().trim().min(1, "נדרש תוכן למשימה").max(500),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "תאריך לא תקין"),
+  /** Omit or null for general branch task; user id for personal task. */
+  assigneeId: z.string().min(1).nullable().optional(),
 });
 export type DailyTaskInput = z.infer<typeof DailyTaskSchema>;
 
