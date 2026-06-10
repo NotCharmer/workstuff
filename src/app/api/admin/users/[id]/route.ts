@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { AdminUserPatchSchema } from "@/lib/validators";
 import { AuthError, requireRole } from "@/lib/auth";
+import { userHasBranchAccessOutsideScope } from "@/lib/user-branches";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -33,6 +34,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (actor.role !== "ADMIN") {
       if (!actor.branchId || target.branchId !== actor.branchId) {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+      }
+      if (await userHasBranchAccessOutsideScope(target.id, actor.branchId)) {
+        return NextResponse.json(
+          { ok: false, error: "Multi-branch users require admin approval" },
+          { status: 403 }
+        );
       }
       if (target.role === "ADMIN" || parsed.data.role === "ADMIN") {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });

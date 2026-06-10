@@ -19,6 +19,18 @@ export async function getUserAccessibleBranchIds(userId: string): Promise<string
   return rows.map((row) => row.branchId);
 }
 
+export function branchAccessExceedsScope(accessibleBranchIds: string[], scopeBranchId: string): boolean {
+  return accessibleBranchIds.some((branchId) => branchId !== scopeBranchId);
+}
+
+export async function userHasBranchAccessOutsideScope(
+  userId: string,
+  scopeBranchId: string
+): Promise<boolean> {
+  const accessible = await getUserAccessibleBranchIds(userId);
+  return branchAccessExceedsScope(accessible, scopeBranchId);
+}
+
 export async function syncUserBranchAccess(userId: string, branchIds: string[]): Promise<void> {
   const unique = [...new Set(branchIds.filter(Boolean))];
   await prisma.$transaction([

@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { TeamUserPatchSchema } from "@/lib/validators";
 import { AuthError, requireRole } from "@/lib/auth";
+import { userHasBranchAccessOutsideScope } from "@/lib/user-branches";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -35,6 +36,15 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
     if (target.id === actor.id) {
       return NextResponse.json({ ok: false, error: "Cannot change your own permissions here" }, { status: 400 });
+    }
+    if (
+      actor.role === "BRANCH_MANAGER" &&
+      (await userHasBranchAccessOutsideScope(target.id, actor.branchId))
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "Multi-branch users require admin approval" },
+        { status: 403 }
+      );
     }
 
     if (actor.role === "BRANCH_MANAGER") {
