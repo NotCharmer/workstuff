@@ -5,6 +5,7 @@ import { resolveStaffPassword } from "@/lib/default-credentials";
 import { getDefaultStaffPassword } from "@/lib/server-env";
 import { TeamUserCreateSchema } from "@/lib/validators";
 import { AuthError, getCurrentUser, requireRole } from "@/lib/auth";
+import { getViewBranchId } from "@/lib/branch-scope";
 
 export async function GET() {
   try {
@@ -12,12 +13,13 @@ export async function GET() {
     if (actor.status !== "ACTIVE") {
       return NextResponse.json({ ok: false, error: "Account not active" }, { status: 403 });
     }
-    if (!actor.branchId) {
+    const branchId = await getViewBranchId(actor);
+    if (!branchId) {
       return NextResponse.json({ ok: false, error: "No branch assigned" }, { status: 400 });
     }
 
     const users = await prisma.user.findMany({
-      where: { branchId: actor.branchId },
+      where: { branchId },
       orderBy: [{ createdAt: "desc" }],
       select: {
         id: true,
@@ -54,7 +56,8 @@ export async function POST(req: Request) {
     if (actor.status !== "ACTIVE") {
       return NextResponse.json({ ok: false, error: "Account not active" }, { status: 403 });
     }
-    if (!actor.branchId) {
+    const branchId = await getViewBranchId(actor);
+    if (!branchId) {
       return NextResponse.json(
         { ok: false, error: "אין סניף משויך לחשבון שלך. פנו למנהל." },
         { status: 400 }
@@ -82,7 +85,7 @@ export async function POST(req: Request) {
         name: placeholderName,
         role: "STAFF",
         status: "PENDING",
-        branchId: actor.branchId,
+        branchId,
         passwordHash,
         onboardingCompleted: false,
       },
