@@ -7,8 +7,20 @@ import { AuthError, requireRole } from "@/lib/auth";
 export async function GET() {
   try {
     const actor = await requireRole(["ADMIN", "BRANCH_MANAGER"]);
+    const actorBranchId = actor.branchId ?? "__none__";
     const users = await prisma.user.findMany({
-      where: actor.role === "ADMIN" ? {} : { branchId: actor.branchId },
+      where:
+        actor.role === "ADMIN"
+          ? {}
+          : {
+              OR: [
+                { branchId: actorBranchId },
+                {
+                  status: "PENDING",
+                  branchAccess: { some: { branchId: actorBranchId } },
+                },
+              ],
+            },
       orderBy: [{ createdAt: "desc" }],
       select: {
         id: true,

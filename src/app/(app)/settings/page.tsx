@@ -18,11 +18,13 @@ import {
   getOpenAIApiKey,
   getOpenAIOcrModel,
 } from "@/lib/server-env";
+import { getViewBranchContext } from "@/lib/branch-scope";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const user = await getCurrentUserOrRedirect();
+  const { viewBranchName } = await getViewBranchContext(user);
   const ocrProvider = getOcrProviderName();
   const hasKey = Boolean(getOpenAIApiKey());
   const model = getOpenAIOcrModel();
@@ -60,7 +62,7 @@ export default async function SettingsPage() {
 
       {user.status === "ACTIVE" && (
         <TeamPanel
-          branchName={user.branchName}
+          branchName={viewBranchName ?? user.branchName}
           actorId={user.id}
           actorRole={user.role}
           canManageTeam={user.role === "ADMIN" || user.role === "BRANCH_MANAGER"}

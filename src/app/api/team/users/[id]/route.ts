@@ -3,11 +3,13 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { TeamUserPatchSchema } from "@/lib/validators";
 import { AuthError, requireRole } from "@/lib/auth";
+import { getViewBranchId } from "@/lib/branch-scope";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
     const actor = await requireRole(["ADMIN", "BRANCH_MANAGER"]);
-    if (!actor.branchId) {
+    const branchId = await getViewBranchId(actor);
+    if (!branchId) {
       return NextResponse.json({ ok: false, error: "No branch assigned" }, { status: 400 });
     }
 
@@ -30,7 +32,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (!target) {
       return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
     }
-    if (target.branchId !== actor.branchId) {
+    if (target.branchId !== branchId) {
       return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
     }
     if (target.id === actor.id) {
@@ -54,11 +56,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (parsed.data.status) data.status = parsed.data.status;
     if (parsed.data.password) data.passwordHash = await hash(parsed.data.password, 12);
 
-    const user = await prisma.user.update({
-      where: { id: params.id },
-      data,
-      select: { id: true, email: true, name: true, role: true, status: true },
-    });
+    const [user] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: params.id },
+        data,
+        select: { id: true, email: true, name: true, role: true, status: true },
+      }),
+      prisma.userBranchAccess.deleteMany({ where: { userId: params.id } }),
+      prisma.userBranchAccess.createMany({
+        data: [{ userId: params.id, branchId }],
+        skipDuplicates: true,
+      }),
+    ]);
 
     return NextResponse.json({ ok: true, user });
   } catch (error) {
