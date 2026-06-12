@@ -191,7 +191,7 @@ export function assertCanDeleteTask(user: CurrentUser, task: DailyTaskRecord): v
     return;
   }
 
-  if (task.assigneeId !== user.id && task.authorId !== user.id) {
+  if (task.authorId !== user.id) {
     throw new Error("FORBIDDEN");
   }
 }
