@@ -9,6 +9,7 @@ const norm = (s: string) =>
     .trim()
     .toLowerCase()
     .replace(/\s+/g, " ");
+const compactNorm = (s: string) => norm(s).replace(/\s/g, "");
 
 const GENERIC_HEADER_TOKENS = [
   "מחצית",
@@ -49,24 +50,39 @@ const ALIASES = {
   subject: ["subject", "course", "מקצוע"],
   grade: ["grade", "score", "mark", "ציון", "ציון מספרי סופי"],
   className: ["classname", "class", "כיתה"],
-  layer: ["שכבה", "grade level"],
+  layer: ["שכבה", "grade level", "gradelevel", "year level"],
   externalId: [
     "externalid",
     "student id",
+    "student number",
+    "studentnumber",
+    "student no",
+    "student no.",
+    "student id number",
     "id",
     "מזהה",
     "מספר",
+    "מספר תלמיד",
     "ת.ז",
     "ת.ז. התלמיד",
     "תעודה",
   ],
 } as const;
 
+function headerMatchesExactAlias(cell: string, aliases: readonly string[]): boolean {
+  const n = norm(cell);
+  if (!n) return false;
+  const compact = compactNorm(cell);
+  return aliases.some((a) => {
+    const na = norm(a);
+    return na === n || compactNorm(a) === compact;
+  });
+}
+
 function headerMatchesAlias(cell: string, aliases: readonly string[]): boolean {
   const n = norm(cell);
   if (!n) return false;
-  if (aliases.some((a) => norm(a) === n)) return true;
-  if (aliases.some((a) => norm(a) === n.replace(/\s/g, ""))) return true;
+  if (headerMatchesExactAlias(cell, aliases)) return true;
   return aliases.some((a) => {
     const na = norm(a);
     return na.length >= 2 && n.includes(na);
@@ -75,10 +91,7 @@ function headerMatchesAlias(cell: string, aliases: readonly string[]): boolean {
 
 function findColumn(headerRow: string[], aliases: readonly string[]): number {
   for (let c = 0; c < headerRow.length; c++) {
-    const n = norm(headerRow[c] ?? "");
-    if (aliases.some((a) => norm(a) === n || norm(a) === n.replace(/\s/g, ""))) {
-      return c;
-    }
+    if (headerMatchesExactAlias(headerRow[c] ?? "", aliases)) return c;
   }
   const byLength = [...aliases].sort((a, b) => norm(b).length - norm(a).length);
   for (let c = 0; c < headerRow.length; c++) {
@@ -97,7 +110,39 @@ function findColumn(headerRow: string[], aliases: readonly string[]): number {
 
 function isSerialColumn(header: string): boolean {
   const n = norm(header);
-  return n === "מס'" || n.startsWith("מס") || n === "מספר";
+  return (
+    n === "#" ||
+    n === "no" ||
+    n === "no." ||
+    n === "row" ||
+    n === "מס'" ||
+    n === "מספר סידורי" ||
+    n.startsWith("מס")
+  );
+}
+
+function isGenderColumn(header: string): boolean {
+  const n = norm(header);
+  return n === "מין" || n === "gender" || n === "sex";
+}
+
+function isGenericGradeHeader(header: string): boolean {
+  return headerMatchesExactAlias(header, ALIASES.grade);
+}
+
+function parseGradeValue(rawValue: string, rowNumber: number, warnings: string[]): number | null {
+  const raw = rawValue.toString().trim().replace(",", ".");
+  if (!raw) return null;
+  if (!/^-?\d+(?:\.\d+)?$/.test(raw)) {
+    warnings.push(`שורה ${rowNumber}: ${he.api.csvRowBadGrade} (${rawValue})`);
+    return null;
+  }
+  const grade = Number.parseFloat(raw);
+  if (grade < 0 || grade > 100) {
+    warnings.push(`שורה ${rowNumber}: ציון מחוץ לטווח 0-100 (${rawValue})`);
+    return null;
+  }
+  return grade;
 }
 
 function mapHeaders(headers: (string | undefined)[]):
@@ -113,6 +158,9 @@ function mapHeaders(headers: (string | undefined)[]):
   if (clean.length < 3) return null;
 
   const pick = (keys: readonly string[]): string | undefined => {
+    for (const h of clean) {
+      if (headerMatchesExactAlias(h, keys)) return h;
+    }
     for (const h of clean) {
       if (headerMatchesAlias(h, keys)) return h;
     }
@@ -255,16 +303,14 @@ function parseComplexSadinCsv(
     for (let col = 0; col < resolvedNameCol; col++) {
       const subject = subjectByCol[col];
       if (!subject) continue;
-      const raw = (row[col] ?? "").toString().trim().replace(",", ".");
-      if (!raw) continue;
-      const grade = Number.parseFloat(raw);
-      if (Number.isNaN(grade)) continue;
+      const grade = parseGradeValue(row[col] ?? "", r + 1, warnings);
+      if (grade == null) continue;
 
       rows.push({
         id: randomUUID(),
         studentName,
         subject,
-        grade: Math.min(100, Math.max(0, grade)),
+        grade,
         className: classNameFromTitle,
         externalId,
         confidence: 0.99,
@@ -341,7 +387,7 @@ function parseSchoolExportWideCsv(
   const externalIdCol = findColumn(headerRow, ALIASES.externalId);
   const classCol = findColumn(headerRow, ALIASES.className);
   const layerCol = findColumn(headerRow, ALIASES.layer);
-  const genderCol = headerRow.findIndex((h) => norm(h) === "מין");
+  const genderCol = headerRow.findIndex(isGenderColumn);
 
   const reserved = new Set(
     [nameCol, subjectCol, externalIdCol, classCol, layerCol, genderCol].filter((c) => c >= 0)
@@ -379,13 +425,11 @@ function parseSchoolExportWideCsv(
     const className = buildClassName(layer, classNum, fileName);
 
     for (const { col, label } of gradeCols) {
-      const raw = (row[col] ?? "").toString().trim().replace(",", ".");
-      if (!raw) continue;
-      const grade = Number.parseFloat(raw);
-      if (Number.isNaN(grade)) continue;
+      const grade = parseGradeValue(row[col] ?? "", r + 1, warnings);
+      if (grade == null) continue;
 
       const subject =
-        gradeCols.length === 1 && norm(label).includes("ציון")
+        gradeCols.length === 1 && isGenericGradeHeader(label)
           ? subjectBase
           : `${subjectBase} - ${label}`;
 
@@ -393,7 +437,7 @@ function parseSchoolExportWideCsv(
         id: randomUUID(),
         studentName,
         subject,
-        grade: Math.min(100, Math.max(0, grade)),
+        grade,
         className,
         externalId,
         confidence: 0.99,
@@ -472,15 +516,13 @@ function parseWideGradeCsv(
     const className = rowClassName ?? fileClass;
 
     for (const [col, subject] of subjectByCol) {
-      const raw = (row[col] ?? "").toString().trim().replace(",", ".");
-      if (!raw) continue;
-      const grade = Number.parseFloat(raw);
-      if (Number.isNaN(grade)) continue;
+      const grade = parseGradeValue(row[col] ?? "", r + 1, warnings);
+      if (grade == null) continue;
       rows.push({
         id: randomUUID(),
         studentName,
         subject,
-        grade: Math.min(100, Math.max(0, grade)),
+        grade,
         className,
         externalId,
         confidence: 0.99,
@@ -571,12 +613,13 @@ export function parseGradeCsv(
       warnings.push(`שורה ${i + 2}: ${he.api.csvRowMissingSubject}`);
       continue;
     }
-    const g = Number.parseFloat(gRaw);
-    if (Number.isNaN(g)) {
-      warnings.push(`שורה ${i + 2}: ${he.api.csvRowBadGrade} (${gRaw})`);
+    const grade = parseGradeValue(gRaw, i + 2, warnings);
+    if (grade == null) {
+      if (!gRaw) {
+        warnings.push(`שורה ${i + 2}: ${he.api.csvRowBadGrade} (${gRaw})`);
+      }
       continue;
     }
-    const gClamped = Math.min(100, Math.max(0, g));
     const className = col.className
       ? (r[col.className] ?? "").toString().trim() || null
       : null;
@@ -588,7 +631,7 @@ export function parseGradeCsv(
       id: randomUUID(),
       studentName: name,
       subject,
-      grade: gClamped,
+      grade,
       className,
       externalId,
       confidence: 0.99,

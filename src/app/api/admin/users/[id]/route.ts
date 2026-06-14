@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { AdminUserPatchSchema } from "@/lib/validators";
 import { AuthError, requireRole } from "@/lib/auth";
+import { getUserAccessibleBranchIds } from "@/lib/user-branches";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -34,7 +35,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if (!actor.branchId || target.branchId !== actor.branchId) {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
+      const targetBranchAccess = await getUserAccessibleBranchIds(target.id);
+      if (
+        targetBranchAccess.length > 0 &&
+        targetBranchAccess.some((branchId) => branchId !== actor.branchId)
+      ) {
+        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+      }
       if (target.role === "ADMIN" || parsed.data.role === "ADMIN") {
+        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+      }
+      if (parsed.data.role === "BRANCH_MANAGER") {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
       if (parsed.data.status === "BLOCKED") {
