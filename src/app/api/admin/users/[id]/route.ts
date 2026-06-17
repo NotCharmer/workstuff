@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { AdminUserPatchSchema } from "@/lib/validators";
 import { AuthError, requireRole } from "@/lib/auth";
+import { syncUserBranchAccess } from "@/lib/user-branches";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -50,6 +51,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (parsed.data.status) data.status = parsed.data.status;
     if (parsed.data.branchId) data.branchId = parsed.data.branchId;
     if (parsed.data.password) data.passwordHash = await hash(parsed.data.password, 12);
+
+    if (actor.role === "BRANCH_MANAGER" && parsed.data.status === "ACTIVE" && actor.branchId) {
+      await syncUserBranchAccess(target.id, [actor.branchId]);
+    }
 
     const updated = await prisma.user.update({
       where: { id: params.id },
