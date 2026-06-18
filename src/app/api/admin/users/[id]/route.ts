@@ -51,18 +51,33 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (parsed.data.branchId) data.branchId = parsed.data.branchId;
     if (parsed.data.password) data.passwordHash = await hash(parsed.data.password, 12);
 
-    const updated = await prisma.user.update({
-      where: { id: params.id },
-      data,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        status: true,
-        branchId: true,
-      },
-    });
+    const nextRole = parsed.data.role ?? target.role;
+    const nextBranchId = parsed.data.branchId ?? target.branchId;
+    const approvedBranchIds = nextRole === "ADMIN" || !nextBranchId ? [] : [nextBranchId];
+
+    const [updated] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: params.id },
+        data,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          status: true,
+          branchId: true,
+        },
+      }),
+      prisma.userBranchAccess.deleteMany({ where: { userId: params.id } }),
+      ...(approvedBranchIds.length > 0
+        ? [
+            prisma.userBranchAccess.createMany({
+              data: approvedBranchIds.map((branchId) => ({ userId: params.id, branchId })),
+              skipDuplicates: true,
+            }),
+          ]
+        : []),
+    ]);
     return NextResponse.json({ ok: true, user: updated });
   } catch (error) {
     if (error instanceof AuthError) {
