@@ -11,6 +11,14 @@ export function formatRequestedBranchCodes(codes: string[]): string {
 }
 
 export async function getUserAccessibleBranchIds(userId: string): Promise<string[]> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { branchId: true, requestedBranchCode: true },
+  });
+  if (user?.requestedBranchCode) {
+    return user.branchId ? [user.branchId] : [];
+  }
+
   const rows = await prisma.userBranchAccess.findMany({
     where: { userId },
     select: { branchId: true },

@@ -13,7 +13,7 @@ import { PENDING_REVIEW_SESSION_KEY } from "@/lib/upload/manual-review";
 
 const SESSION_KEY = PENDING_REVIEW_SESSION_KEY;
 
-type PendingReview = ParseResult & { fileName: string };
+type PendingReview = ParseResult & { fileName: string; branchId?: string };
 
 export function UploadDropzone() {
   const router = useRouter();
@@ -58,6 +58,7 @@ export function UploadDropzone() {
       }
       const payload: PendingReview = {
         fileName: json.fileName,
+        branchId: json.branchId,
         rows: json.rows,
         avgConfidence: json.avgConfidence,
         warnings: json.warnings ?? [],

@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { fileName, rows, avgConfidence, imagePath } = parsed.data;
+    const { fileName, rows, avgConfidence, imagePath, branchId: reviewBranchId } = parsed.data;
     const filteredRows = filterRowsByTargetStudents(rows);
     if (filteredRows.length === 0) {
       return NextResponse.json(
@@ -54,6 +54,12 @@ export async function POST(req: Request) {
     }
 
     const branchId = await requireViewBranchId(user);
+    if (reviewBranchId && reviewBranchId !== branchId) {
+      return NextResponse.json(
+        { ok: false, error: "בית הספר הפעיל השתנה מאז הפענוח — חזרו לבית הספר המקורי ונסו שוב" },
+        { status: 409 }
+      );
+    }
     const cleanedExternalIds = filteredRows
       .map((r) => r.externalId?.toString().trim() ?? "")
       .filter((v) => v.length > 0);
