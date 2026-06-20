@@ -100,6 +100,11 @@ function isSerialColumn(header: string): boolean {
   return n === "מס'" || n.startsWith("מס") || n === "מספר";
 }
 
+function isSingleFinalGradeColumn(label: string): boolean {
+  const n = norm(label);
+  return n.includes("ציון") || n === "grade" || n === "score" || n === "mark";
+}
+
 function mapHeaders(headers: (string | undefined)[]):
   | {
       studentName: string;
@@ -385,7 +390,7 @@ function parseSchoolExportWideCsv(
       if (Number.isNaN(grade)) continue;
 
       const subject =
-        gradeCols.length === 1 && norm(label).includes("ציון")
+        gradeCols.length === 1 && isSingleFinalGradeColumn(label)
           ? subjectBase
           : `${subjectBase} - ${label}`;
 
@@ -536,7 +541,7 @@ export function parseGradeCsv(
   if (!fields?.length) {
     const wide = parseWideGradeCsv(text, fileName);
     if (wide.ok) return wide;
-    if (ntext.includes("ציונים שליליים")) return parseComplexSadinCsv(text);
+    if (ntext.includes("שם התלמיד")) return parseComplexSadinCsv(text);
     return { ok: false, error: he.api.csvInvalidHeaders };
   }
 
@@ -544,7 +549,7 @@ export function parseGradeCsv(
   if (!col) {
     const wide = parseWideGradeCsv(text, fileName);
     if (wide.ok) return wide;
-    if (ntext.includes("ציונים שליליים")) return parseComplexSadinCsv(text);
+    if (ntext.includes("שם התלמיד")) return parseComplexSadinCsv(text);
     return { ok: false, error: he.api.csvInvalidHeaders };
   }
 
