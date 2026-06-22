@@ -23,12 +23,16 @@ export class AuthError extends Error {
   }
 }
 
-export async function getCurrentUser(): Promise<CurrentUser> {
+type GetCurrentUserOptions = {
+  allowInactive?: boolean;
+};
+
+export async function getCurrentUser(options: GetCurrentUserOptions = {}): Promise<CurrentUser> {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || !session.user.email || !session.user.name) {
     throw new AuthError("Unauthorized", 401);
   }
-  return {
+  const user = {
     id: session.user.id,
     email: session.user.email,
     name: session.user.name,
@@ -39,6 +43,10 @@ export async function getCurrentUser(): Promise<CurrentUser> {
     branchCode: session.user.branchCode ?? null,
     branchName: session.user.branchName ?? null,
   };
+  if (!options.allowInactive && user.status !== "ACTIVE") {
+    throw new AuthError("Account pending approval", 403);
+  }
+  return user;
 }
 
 export async function requireRole(roles: UserRole[]): Promise<CurrentUser> {

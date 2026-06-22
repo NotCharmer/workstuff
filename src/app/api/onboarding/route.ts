@@ -7,7 +7,7 @@ import { he } from "@/lib/i18n/he";
 
 export async function POST(req: Request) {
   try {
-    const user = await getCurrentUser();
+    const user = await getCurrentUser({ allowInactive: true });
     if (user.onboardingCompleted) {
       return NextResponse.json({ ok: false, error: he.onboarding.alreadyDone }, { status: 400 });
     }

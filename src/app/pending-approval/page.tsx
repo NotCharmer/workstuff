@@ -1,7 +1,49 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { he } from "@/lib/i18n/he";
 
 export default function PendingApprovalPage() {
+  const router = useRouter();
+  const { data: session, update } = useSession();
+
+  useEffect(() => {
+    let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+
+    async function refreshApprovalStatus() {
+      const refreshedSession = await update();
+      const refreshedUser = refreshedSession?.user;
+      if (
+        !cancelled &&
+        refreshedUser?.status === "ACTIVE" &&
+        refreshedUser.onboardingCompleted
+      ) {
+        router.replace("/dashboard");
+        router.refresh();
+      }
+    }
+
+    if (session?.user?.status === "ACTIVE" && session.user.onboardingCompleted) {
+      router.replace("/dashboard");
+      router.refresh();
+      return;
+    }
+
+    void refreshApprovalStatus();
+    intervalId = setInterval(() => {
+      void refreshApprovalStatus();
+    }, 15000);
+
+    return () => {
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [router, session?.user?.onboardingCompleted, session?.user?.status, update]);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
       <Card className="w-full max-w-lg">
