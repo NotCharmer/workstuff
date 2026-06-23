@@ -11,12 +11,23 @@ export function formatRequestedBranchCodes(codes: string[]): string {
 }
 
 export async function getUserAccessibleBranchIds(userId: string): Promise<string[]> {
-  const rows = await prisma.userBranchAccess.findMany({
-    where: { userId },
-    select: { branchId: true },
-    orderBy: { createdAt: "asc" },
-  });
-  return rows.map((row) => row.branchId);
+  const [user, rows] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { branchId: true, requestedBranchCode: true, role: true },
+    }),
+    prisma.userBranchAccess.findMany({
+      where: { userId },
+      select: { branchId: true },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
+
+  const branchIds = rows.map((row) => row.branchId);
+  if (user?.role !== "ADMIN" && user?.requestedBranchCode && user.branchId) {
+    return branchIds.filter((branchId) => branchId === user.branchId);
+  }
+  return branchIds;
 }
 
 export async function syncUserBranchAccess(userId: string, branchIds: string[]): Promise<void> {
