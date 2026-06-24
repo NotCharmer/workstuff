@@ -55,7 +55,11 @@ const ALIASES = {
     "student id",
     "id",
     "מזהה",
-    "מספר",
+    "מספר תלמיד",
+    "מספר תלמידה",
+    "מספר זהות",
+    "מספר תעודת זהות",
+    "מספר מזהה",
     "ת.ז",
     "ת.ז. התלמיד",
     "תעודה",
@@ -95,6 +99,19 @@ function findColumn(headerRow: string[], aliases: readonly string[]): number {
   return -1;
 }
 
+function isAmbiguousExternalIdHeader(header: string): boolean {
+  const n = norm(header);
+  return n === "#" || n === "no" || n === "no." || n === "מס" || n === "מס'" || n === "מס׳" || n === "מספר";
+}
+
+function findExternalIdColumn(headerRow: string[]): number {
+  for (let c = 0; c < headerRow.length; c++) {
+    if (isAmbiguousExternalIdHeader(headerRow[c] ?? "")) continue;
+    if (headerMatchesAlias(headerRow[c] ?? "", ALIASES.externalId)) return c;
+  }
+  return -1;
+}
+
 function isSerialColumn(header: string): boolean {
   const n = norm(header);
   return n === "מס'" || n.startsWith("מס") || n === "מספר";
@@ -123,12 +140,15 @@ function mapHeaders(headers: (string | undefined)[]):
   const subject = pick(ALIASES.subject);
   const grade = pick(ALIASES.grade);
   if (!studentName || !subject || !grade) return null;
+  const externalId = clean.find(
+    (h) => !isAmbiguousExternalIdHeader(h) && headerMatchesAlias(h, ALIASES.externalId)
+  );
   return {
     studentName,
     subject,
     grade,
     className: pick(ALIASES.className),
-    externalId: pick(ALIASES.externalId),
+    externalId,
   };
 }
 
@@ -175,6 +195,7 @@ function parseComplexSadinCsv(
   const resolvedExternalIdCol =
     nearbyCols
       .filter((col) => col !== resolvedNameCol)
+      .filter((col) => !isSerialColumn(markerRow[col] ?? ""))
       .map((col) => {
         const values = dataProbeRows
           .map((row) => (row[col] ?? "").toString().trim())
@@ -338,7 +359,7 @@ function parseSchoolExportWideCsv(
     return { ok: false, error: he.api.csvInvalidHeaders };
   }
 
-  const externalIdCol = findColumn(headerRow, ALIASES.externalId);
+  const externalIdCol = findExternalIdColumn(headerRow);
   const classCol = findColumn(headerRow, ALIASES.className);
   const layerCol = findColumn(headerRow, ALIASES.layer);
   const genderCol = headerRow.findIndex((h) => norm(h) === "מין");
@@ -435,7 +456,7 @@ function parseWideGradeCsv(
   const nameCol = findColumn(headerRow, ALIASES.studentName);
   if (nameCol < 0) return { ok: false, error: he.api.csvInvalidHeaders };
 
-  const externalIdCol = findColumn(headerRow, ALIASES.externalId);
+  const externalIdCol = findExternalIdColumn(headerRow);
   const classCol = findColumn(headerRow, ALIASES.className);
   const subjectCol = findColumn(headerRow, ALIASES.subject);
   const reservedCols = new Set(

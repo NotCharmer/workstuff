@@ -289,6 +289,7 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
                       })
                     }
                     className="h-9 rounded-lg border border-input bg-background px-3 text-sm"
+                    disabled={role !== "ADMIN"}
                   >
                     <option value="STAFF">STAFF</option>
                     {role === "ADMIN" && <option value="BRANCH_MANAGER">BRANCH_MANAGER</option>}
@@ -329,7 +330,7 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={saving}
+                    disabled={saving || (role !== "ADMIN" && u.role !== "STAFF")}
                     onClick={() => {
                       const nextPassword = window.prompt("New password (min 8 chars)");
                       if (!nextPassword) return;

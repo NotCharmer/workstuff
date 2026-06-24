@@ -194,7 +194,8 @@ export function TeamPanel({ branchName, actorId, actorRole, canManageTeam }: Tea
             <ul className="divide-y rounded-lg border">
               {users.map((u) => {
                 const isSelf = u.id === actorId;
-                const canEdit = canManageTeam && !isSelf;
+                const canEdit =
+                  canManageTeam && !isSelf && (actorRole === "ADMIN" || u.role === "STAFF");
                 return (
                   <li
                     key={u.id}

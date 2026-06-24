@@ -23,6 +23,18 @@ const SUBJECT_PALETTE = [
   "#14b8a6",
 ];
 
+function looksLikeRowSerialIds(values: string[]): boolean {
+  const unique = [...new Set(values.map((v) => v.trim()).filter(Boolean))];
+  if (unique.length < 3) return false;
+  const numeric = unique.map((v) => (/^\d+$/.test(v) ? Number.parseInt(v, 10) : Number.NaN));
+  if (numeric.some((n) => Number.isNaN(n))) return false;
+
+  const sorted = [...numeric].sort((a, b) => a - b);
+  const start = sorted[0];
+  if (start !== 0 && start !== 1) return false;
+  return sorted.every((n, idx) => n === start + idx);
+}
+
 /**
  * Persist a reviewed batch (sequential writes — Neon pooler does not support long Prisma transactions).
  */
@@ -60,7 +72,10 @@ export async function POST(req: Request) {
     const uniqueExternalIds = new Set(cleanedExternalIds);
     const uniqueRatio =
       cleanedExternalIds.length > 0 ? uniqueExternalIds.size / cleanedExternalIds.length : 0;
-    const useExternalId = cleanedExternalIds.length >= 3 && uniqueRatio >= 0.9;
+    const useExternalId =
+      cleanedExternalIds.length >= 3 &&
+      uniqueRatio >= 0.9 &&
+      !looksLikeRowSerialIds(cleanedExternalIds);
 
     const upload = await prisma.uploadSession.create({
       data: {
