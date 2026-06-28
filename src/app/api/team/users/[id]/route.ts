@@ -38,10 +38,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
 
     if (actor.role === "BRANCH_MANAGER") {
-      if (target.role === "ADMIN" || parsed.data.role === "ADMIN") {
+      if (target.role !== "STAFF") {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
-      if (parsed.data.role === "BRANCH_MANAGER") {
+      if (parsed.data.role && parsed.data.role !== "STAFF") {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
       if (parsed.data.status === "BLOCKED") {
