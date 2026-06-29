@@ -36,7 +36,13 @@ export async function assertActiveUserInBranch(
     where: {
       id: userId,
       status: "ACTIVE",
-      OR: [{ branchId }, { branchAccess: { some: { branchId } } }],
+      OR: [
+        { branchId },
+        {
+          requestedBranchCode: null,
+          branchAccess: { some: { branchId } },
+        },
+      ],
     },
     select: { id: true, name: true, role: true },
   });
