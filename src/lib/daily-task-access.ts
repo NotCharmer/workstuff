@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import type { CurrentUser } from "@/lib/auth";
 import type { UserRole } from "@/lib/enums";
+import type { PatchDailyTaskInput } from "@/lib/validators";
 import { prisma } from "@/lib/db";
 
 export type DailyTaskScope = "all" | "general" | "personal";
@@ -165,12 +166,19 @@ export async function loadTaskForUser(
   });
 }
 
-export function assertCanModifyTask(user: CurrentUser, task: DailyTaskRecord): void {
+export function assertCanModifyTask(
+  user: CurrentUser,
+  task: DailyTaskRecord,
+  patch: PatchDailyTaskInput
+): void {
   if (canManageOthersTasks(user.role)) {
     return;
   }
 
   if (isGeneralTask(task)) {
+    if (patch.title !== undefined && task.authorId !== user.id) {
+      throw new Error("FORBIDDEN");
+    }
     return;
   }
 
