@@ -78,7 +78,11 @@ async function testStudentListSubjectCoverage() {
   assert.ok(isStudentListSubject("Python"));
 }
 
-await testDailyTaskPatchAuthorization();
-await testStudentListSubjectCoverage();
+async function main() {
+  await testDailyTaskPatchAuthorization();
+  await testStudentListSubjectCoverage();
 
-console.log("critical regression checks passed");
+  console.log("critical regression checks passed");
+}
+
+void main();
