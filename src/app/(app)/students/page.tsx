@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { he } from "@/lib/i18n/he";
 import { getCurrentUserOrRedirect } from "@/lib/auth";
 import { getViewBranchId } from "@/lib/branch-scope";
+import { STUDENT_LIST_SUBJECT_TOKENS } from "@/lib/upload/target-subjects";
 
 export const dynamic = "force-dynamic";
 
@@ -20,37 +21,20 @@ type SearchParams = {
   avg?: "all" | "important";
 };
 
-const IMPORTANT_SUBJECT_TOKENS = [
-  "פייתון",
-  "python",
-  "תקשוב ומערכות",
-  "תקשוב",
-  "מערכות",
-  "חשמל ואלקטרוניקה",
+const IMPORTANT_SUBJECT_TOKENS = Array.from(new Set([
+  ...STUDENT_LIST_SUBJECT_TOKENS,
   "פיסיקה",
   "פיזיקה",
   "physics",
-  "מיתוג",
   "מתמטיקה",
   "mathematics",
   "math",
-] as const;
+] as const));
 
 const REQUIRED_SUBJECT_FILTER = {
-  OR: [
-    { subject: { name: { contains: "פייתון" } } },
-    { subject: { name: { contains: "מיתוג" } } },
-    { subject: { name: { contains: "מעבדה באלקטרוניקה" } } },
-    { subject: { name: { contains: "אלקטרוניקה" } } },
-    { subject: { name: { contains: "מעבדה" } } },
-    { subject: { name: { contains: "python" } } },
-    { subject: { name: { contains: "Python" } } },
-    { subject: { name: { contains: "electronics" } } },
-    { subject: { name: { contains: "lab" } } },
-    { subject: { name: { contains: "תקשוב ומערכות" } } },
-    { subject: { name: { contains: "תקשוב" } } },
-    { subject: { name: { contains: "מערכות" } } },
-  ],
+  OR: STUDENT_LIST_SUBJECT_TOKENS.map((token) => ({
+    subject: { name: { contains: token } },
+  })),
 };
 
 function isImportantSubject(subjectName: string): boolean {

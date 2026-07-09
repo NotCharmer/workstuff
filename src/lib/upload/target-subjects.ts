@@ -18,9 +18,29 @@ export const TARGET_SUBJECT_TOKENS = [
   "פרויקט גמר",
 ];
 
+export const STUDENT_LIST_EXTRA_SUBJECT_TOKENS = [
+  "מעבדה באלקטרוניקה",
+  "אלקטרוניקה",
+  "מעבדה",
+  "Python",
+  "electronics",
+  "lab",
+] as const;
+
+export const STUDENT_LIST_SUBJECT_TOKENS = Array.from(
+  new Set([...TARGET_SUBJECT_TOKENS, ...STUDENT_LIST_EXTRA_SUBJECT_TOKENS])
+);
+
 export function isTargetSubject(subject: string): boolean {
   const normalized = subject.toLowerCase();
   return TARGET_SUBJECT_TOKENS.some((token) =>
+    normalized.includes(token.toLowerCase())
+  );
+}
+
+export function isStudentListSubject(subject: string): boolean {
+  const normalized = subject.toLowerCase();
+  return STUDENT_LIST_SUBJECT_TOKENS.some((token) =>
     normalized.includes(token.toLowerCase())
   );
 }
