@@ -37,6 +37,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if (target.role === "ADMIN" || parsed.data.role === "ADMIN") {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
+      if (target.role !== "STAFF" || parsed.data.role === "BRANCH_MANAGER") {
+        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+      }
       if (parsed.data.status === "BLOCKED") {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
@@ -51,18 +54,38 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (parsed.data.branchId) data.branchId = parsed.data.branchId;
     if (parsed.data.password) data.passwordHash = await hash(parsed.data.password, 12);
 
-    const updated = await prisma.user.update({
-      where: { id: params.id },
-      data,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        status: true,
-        branchId: true,
-      },
-    });
+    const userSelect = {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      status: true,
+      branchId: true,
+    } as const;
+    const approvedBranchId = data.branchId ?? target.branchId;
+    const shouldSyncBranchAccess =
+      Boolean(approvedBranchId) &&
+      (parsed.data.branchId !== undefined || parsed.data.status === "ACTIVE");
+
+    const updated = shouldSyncBranchAccess
+      ? (
+          await prisma.$transaction([
+            prisma.user.update({
+              where: { id: params.id },
+              data,
+              select: userSelect,
+            }),
+            prisma.userBranchAccess.deleteMany({ where: { userId: params.id } }),
+            prisma.userBranchAccess.create({
+              data: { userId: params.id, branchId: approvedBranchId! },
+            }),
+          ])
+        )[0]
+      : await prisma.user.update({
+          where: { id: params.id },
+          data,
+          select: userSelect,
+        });
     return NextResponse.json({ ok: true, user: updated });
   } catch (error) {
     if (error instanceof AuthError) {
