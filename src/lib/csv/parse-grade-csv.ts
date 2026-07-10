@@ -55,9 +55,12 @@ const ALIASES = {
     "student id",
     "id",
     "מזהה",
-    "מספר",
+    "מספר תלמיד",
+    "מספר התלמיד",
     "ת.ז",
     "ת.ז. התלמיד",
+    "תעודת זהות",
+    "מספר זהות",
     "תעודה",
   ],
 } as const;
@@ -98,6 +101,16 @@ function findColumn(headerRow: string[], aliases: readonly string[]): number {
 function isSerialColumn(header: string): boolean {
   const n = norm(header);
   return n === "מס'" || n.startsWith("מס") || n === "מספר";
+}
+
+function parseGradeInRange(raw: string, warnings: string[], context: string): number | null {
+  const grade = Number.parseFloat(raw);
+  if (Number.isNaN(grade)) return null;
+  if (grade < 0 || grade > 100) {
+    warnings.push(`${context}: ציון מחוץ לטווח 0-100 (${raw})`);
+    return null;
+  }
+  return grade;
 }
 
 function mapHeaders(headers: (string | undefined)[]):
@@ -257,14 +270,18 @@ function parseComplexSadinCsv(
       if (!subject) continue;
       const raw = (row[col] ?? "").toString().trim().replace(",", ".");
       if (!raw) continue;
-      const grade = Number.parseFloat(raw);
-      if (Number.isNaN(grade)) continue;
+      const grade = parseGradeInRange(
+        raw,
+        warnings,
+        `שורה ${r + 1}, ${studentName}, ${subject}`
+      );
+      if (grade == null) continue;
 
       rows.push({
         id: randomUUID(),
         studentName,
         subject,
-        grade: Math.min(100, Math.max(0, grade)),
+        grade,
         className: classNameFromTitle,
         externalId,
         confidence: 0.99,
@@ -381,8 +398,12 @@ function parseSchoolExportWideCsv(
     for (const { col, label } of gradeCols) {
       const raw = (row[col] ?? "").toString().trim().replace(",", ".");
       if (!raw) continue;
-      const grade = Number.parseFloat(raw);
-      if (Number.isNaN(grade)) continue;
+      const grade = parseGradeInRange(
+        raw,
+        warnings,
+        `שורה ${r + 1}, ${studentName}, ${subjectBase} - ${label}`
+      );
+      if (grade == null) continue;
 
       const subject =
         gradeCols.length === 1 && norm(label).includes("ציון")
@@ -393,7 +414,7 @@ function parseSchoolExportWideCsv(
         id: randomUUID(),
         studentName,
         subject,
-        grade: Math.min(100, Math.max(0, grade)),
+        grade,
         className,
         externalId,
         confidence: 0.99,
@@ -474,13 +495,17 @@ function parseWideGradeCsv(
     for (const [col, subject] of subjectByCol) {
       const raw = (row[col] ?? "").toString().trim().replace(",", ".");
       if (!raw) continue;
-      const grade = Number.parseFloat(raw);
-      if (Number.isNaN(grade)) continue;
+      const grade = parseGradeInRange(
+        raw,
+        warnings,
+        `שורה ${r + 1}, ${studentName}, ${subject}`
+      );
+      if (grade == null) continue;
       rows.push({
         id: randomUUID(),
         studentName,
         subject,
-        grade: Math.min(100, Math.max(0, grade)),
+        grade,
         className,
         externalId,
         confidence: 0.99,
@@ -576,7 +601,10 @@ export function parseGradeCsv(
       warnings.push(`שורה ${i + 2}: ${he.api.csvRowBadGrade} (${gRaw})`);
       continue;
     }
-    const gClamped = Math.min(100, Math.max(0, g));
+    if (g < 0 || g > 100) {
+      warnings.push(`שורה ${i + 2}: ציון מחוץ לטווח 0-100 (${gRaw})`);
+      continue;
+    }
     const className = col.className
       ? (r[col.className] ?? "").toString().trim() || null
       : null;
@@ -588,7 +616,7 @@ export function parseGradeCsv(
       id: randomUUID(),
       studentName: name,
       subject,
-      grade: gClamped,
+      grade: g,
       className,
       externalId,
       confidence: 0.99,
