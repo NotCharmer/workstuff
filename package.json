@@ -16,6 +16,7 @@
     "db:migrate-user-branches": "tsx scripts/migrate-user-branches-neon.ts",
     "db:migrate-daily-task-assignee": "tsx scripts/migrate-daily-task-assignee-neon.ts",
     "db:reset-password": "tsx scripts/reset-user-password-neon.ts",
+    "test:branch-access": "tsx scripts/test-branch-access-policy.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {
