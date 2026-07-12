@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { SCHOOL_CODES } from "@/lib/schools";
+import type { Prisma } from "@prisma/client";
 
 export function parseRequestedBranchCodes(value: string | null | undefined): string[] {
   if (!value) return [];
@@ -10,28 +11,54 @@ export function formatRequestedBranchCodes(codes: string[]): string {
   return [...new Set(codes.map((c) => c.trim()).filter(Boolean))].join(",");
 }
 
+export function resolveApprovedBranchIds(input: {
+  primaryBranchId: string | null | undefined;
+  requestedBranchCode: string | null | undefined;
+  accessBranchIds: string[];
+}): string[] {
+  if (input.requestedBranchCode) {
+    return input.primaryBranchId ? [input.primaryBranchId] : [];
+  }
+  return [...new Set(input.accessBranchIds.filter(Boolean))];
+}
+
+export function approvedBranchMembershipWhere(branchId: string): Prisma.UserWhereInput {
+  return {
+    OR: [
+      { branchId },
+      { requestedBranchCode: null, branchAccess: { some: { branchId } } },
+    ],
+  };
+}
+
 export async function getUserAccessibleBranchIds(userId: string): Promise<string[]> {
-  const rows = await prisma.userBranchAccess.findMany({
-    where: { userId },
-    select: { branchId: true },
-    orderBy: { createdAt: "asc" },
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      branchId: true,
+      requestedBranchCode: true,
+      branchAccess: {
+        select: { branchId: true },
+        orderBy: { createdAt: "asc" },
+      },
+    },
   });
-  return rows.map((row) => row.branchId);
+  if (!user) return [];
+  return resolveApprovedBranchIds({
+    primaryBranchId: user.branchId,
+    requestedBranchCode: user.requestedBranchCode,
+    accessBranchIds: user.branchAccess.map((row) => row.branchId),
+  });
 }
 
 export async function syncUserBranchAccess(userId: string, branchIds: string[]): Promise<void> {
   const unique = [...new Set(branchIds.filter(Boolean))];
-  await prisma.$transaction([
-    prisma.userBranchAccess.deleteMany({ where: { userId } }),
-    ...(unique.length > 0
-      ? [
-          prisma.userBranchAccess.createMany({
-            data: unique.map((branchId) => ({ userId, branchId })),
-            skipDuplicates: true,
-          }),
-        ]
-      : []),
-  ]);
+  await prisma.userBranchAccess.deleteMany({ where: { userId } });
+  if (unique.length === 0) return;
+  await prisma.userBranchAccess.createMany({
+    data: unique.map((branchId) => ({ userId, branchId })),
+    skipDuplicates: true,
+  });
 }
 
 export async function userCanSwitchBranches(userId: string, role: string): Promise<boolean> {

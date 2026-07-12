@@ -4,6 +4,7 @@ import { getViewBranchId } from "@/lib/branch-scope";
 import { canManageOthersTasks } from "@/lib/daily-task-access";
 import { he } from "@/lib/i18n/he";
 import { prisma } from "@/lib/db";
+import { approvedBranchMembershipWhere } from "@/lib/user-branches";
 
 export async function GET() {
   try {
@@ -23,7 +24,7 @@ export async function GET() {
     const assignees = await prisma.user.findMany({
       where: {
         status: "ACTIVE",
-        OR: [{ branchId }, { branchAccess: { some: { branchId } } }],
+        ...approvedBranchMembershipWhere(branchId),
       },
       orderBy: [{ name: "asc" }],
       select: {
