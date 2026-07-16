@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { AdminUserPatchSchema } from "@/lib/validators";
 import { AuthError, requireRole } from "@/lib/auth";
+import { syncUserBranchAccess } from "@/lib/user-branches";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -25,7 +26,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     const target = await prisma.user.findUnique({
       where: { id: params.id },
-      select: { id: true, role: true, branchId: true },
+      select: { id: true, role: true, status: true, branchId: true, requestedBranchCode: true },
     });
     if (!target) {
       return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
@@ -45,11 +46,26 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       }
     }
 
-    const data: { role?: string; status?: string; branchId?: string; passwordHash?: string } = {};
+    const nextBranchId = parsed.data.branchId ?? target.branchId;
+    const isApprovingRequestedBranches =
+      Boolean(target.requestedBranchCode) &&
+      (parsed.data.status ?? target.status) === "ACTIVE";
+    if (isApprovingRequestedBranches) {
+      await syncUserBranchAccess(target.id, nextBranchId ? [nextBranchId] : []);
+    }
+
+    const data: {
+      role?: string;
+      status?: string;
+      branchId?: string;
+      passwordHash?: string;
+      requestedBranchCode?: null;
+    } = {};
     if (parsed.data.role) data.role = parsed.data.role;
     if (parsed.data.status) data.status = parsed.data.status;
     if (parsed.data.branchId) data.branchId = parsed.data.branchId;
     if (parsed.data.password) data.passwordHash = await hash(parsed.data.password, 12);
+    if (isApprovingRequestedBranches) data.requestedBranchCode = null;
 
     const updated = await prisma.user.update({
       where: { id: params.id },
