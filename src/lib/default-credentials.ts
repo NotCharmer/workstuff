@@ -1,7 +1,9 @@
 import { getDefaultStaffPassword } from "@/lib/server-env";
 
-export function resolveStaffPassword(provided?: string | null): string {
-  const trimmed = provided?.trim();
-  if (trimmed && trimmed.length >= 8) return trimmed;
-  return getDefaultStaffPassword();
+/**
+ * Accounts created before custom temporary passwords became mandatory may
+ * still have the shared, publicly documented first-login password.
+ */
+export function isLegacySharedStaffPassword(password: string): boolean {
+  return password === getDefaultStaffPassword();
 }

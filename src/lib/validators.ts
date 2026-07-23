@@ -166,8 +166,8 @@ export const TeamUserCreateSchema = z.object({
   email: z.string().trim().email(),
   /** Optional — staff sets their name on first login if omitted. */
   name: z.string().trim().min(2).max(120).optional(),
-  /** Temporary first-login password; staff replaces it on onboarding. Omit for DEFAULT_STAFF_PASSWORD. */
-  password: z.string().min(8).max(200).optional(),
+  /** Unique temporary password supplied privately to this staff member. */
+  password: z.string().min(8).max(200),
 });
 
 export const TeamUserPatchSchema = z.object({
