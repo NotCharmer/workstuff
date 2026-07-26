@@ -114,14 +114,14 @@ export const PatchStudentSchema = z.object({
 export type PatchStudentInput = z.infer<typeof PatchStudentSchema>;
 
 export const TimetableRowSchema = z.object({
-  id: z.string(),
-  className: z.string().min(1),
-  dayOfWeek: z.string().min(1),
-  startTime: z.string().min(1),
-  endTime: z.string().min(1),
-  subject: z.string().min(1),
-  teacher: z.string().optional().nullable(),
-  room: z.string().optional().nullable(),
+  id: z.string().min(1),
+  className: z.string().trim().min(1),
+  dayOfWeek: z.string().trim().min(1),
+  startTime: z.string().trim().min(1),
+  endTime: z.string().trim().min(1),
+  subject: z.string().trim().min(1),
+  teacher: z.string().trim().optional().nullable(),
+  room: z.string().trim().optional().nullable(),
   confidence: z.number().min(0).max(1).optional(),
 });
 

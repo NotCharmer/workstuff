@@ -11,16 +11,30 @@ import { Badge } from "@/components/ui/badge";
 import { he } from "@/lib/i18n/he";
 import type { TimetableRow } from "@/lib/timetable/types";
 
+const LOW_CONFIDENCE = 0.9;
+
 export function TimetableUploader() {
   const router = useRouter();
   const [rows, setRows] = useState<TimetableRow[]>([]);
+  const [parseWarnings, setParseWarnings] = useState<string[]>([]);
   const [fileName, setFileName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [replaceAcknowledged, setReplaceAcknowledged] = useState(false);
 
-  const warnings = useMemo(
-    () => rows.filter((r) => (r.confidence ?? 1) < 0.75).length,
+  const lowConfidenceCount = useMemo(
+    () => rows.filter((r) => (r.confidence ?? 1) < LOW_CONFIDENCE).length,
     [rows]
   );
+
+  const classes = useMemo(
+    () =>
+      Array.from(
+        new Set(rows.map((r) => r.className.trim()).filter(Boolean))
+      ).sort((a, b) => a.localeCompare(b, "he")),
+    [rows]
+  );
+
+  const needsReplaceAck = parseWarnings.length > 0 || lowConfidenceCount > 0;
 
   async function onFileChange(file?: File | null) {
     if (!file) return;
@@ -34,9 +48,18 @@ export function TimetableUploader() {
         toast.error(json?.error ?? he.api.saveFailed);
         return;
       }
-      setRows(json.rows);
+      const warnings = Array.isArray(json.warnings)
+        ? json.warnings.filter((w: unknown): w is string => typeof w === "string" && w.trim().length > 0)
+        : [];
+      setRows(json.rows ?? []);
+      setParseWarnings(warnings);
+      setReplaceAcknowledged(false);
       setFileName(json.fileName ?? file.name);
-      toast.success(he.timetable.extracted(json.rows.length));
+      if (warnings.length > 0) {
+        toast.warning(he.timetable.parseWarnings(warnings.length));
+      } else {
+        toast.success(he.timetable.extracted(json.rows?.length ?? 0));
+      }
     } finally {
       setBusy(false);
     }
@@ -69,6 +92,10 @@ export function TimetableUploader() {
 
   async function save() {
     if (!rows.length) return;
+    if (needsReplaceAck && !replaceAcknowledged) {
+      toast.error(he.timetable.acknowledgeRequired);
+      return;
+    }
     setBusy(true);
     try {
       const res = await fetch("/api/timetable/confirm", {
@@ -82,6 +109,8 @@ export function TimetableUploader() {
         return;
       }
       toast.success(he.timetable.saved(json.saved));
+      setParseWarnings([]);
+      setReplaceAcknowledged(false);
       router.refresh();
     } finally {
       setBusy(false);
@@ -103,20 +132,55 @@ export function TimetableUploader() {
           />
         </label>
         {fileName && (
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <Badge variant="outline">{fileName}</Badge>
-            {warnings > 0 && <Badge variant="warning">{he.timetable.lowConfidence(warnings)}</Badge>}
+            {lowConfidenceCount > 0 && (
+              <Badge variant="warning">{he.timetable.lowConfidence(lowConfidenceCount)}</Badge>
+            )}
+            {parseWarnings.length > 0 && (
+              <Badge variant="warning">{he.timetable.parseWarnings(parseWarnings.length)}</Badge>
+            )}
           </div>
         )}
       </div>
 
       {rows.length > 0 && (
         <div className="space-y-3">
+          {classes.length > 0 && (
+            <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
+              {he.timetable.replaceWarning(classes.join(", "))}
+            </p>
+          )}
+
+          {parseWarnings.length > 0 && (
+            <ul className="max-h-40 space-y-1 overflow-auto rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+              {parseWarnings.map((warning, idx) => (
+                <li key={`${idx}-${warning}`}>{warning}</li>
+              ))}
+            </ul>
+          )}
+
+          {needsReplaceAck && (
+            <label className="flex items-start gap-2 rounded-xl border border-border/60 bg-card px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={replaceAcknowledged}
+                onChange={(e) => setReplaceAcknowledged(e.target.checked)}
+              />
+              <span>{he.timetable.acknowledgeReplace}</span>
+            </label>
+          )}
+
           <div className="flex items-center justify-between">
             <Button type="button" variant="secondary" onClick={addRow}>
               {he.review.addRow}
             </Button>
-            <Button type="button" onClick={save} disabled={busy}>
+            <Button
+              type="button"
+              onClick={save}
+              disabled={busy || (needsReplaceAck && !replaceAcknowledged)}
+            >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : he.review.confirmSave}
             </Button>
           </div>
