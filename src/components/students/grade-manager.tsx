@@ -33,10 +33,12 @@ export function GradeManager({
   studentId,
   initialGrades,
   initialSubjects,
+  readOnly = false,
 }: {
   studentId: string;
   initialGrades: GradeRow[];
   initialSubjects: SubjectOption[];
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -117,6 +119,7 @@ export function GradeManager({
 
   return (
     <div className="space-y-4">
+      {!readOnly && (
       <form
         onSubmit={addGrade}
         className="grid grid-cols-1 gap-2 rounded-xl border border-border/60 bg-card p-3 md:grid-cols-[1fr_110px_180px_auto]"
@@ -165,6 +168,7 @@ export function GradeManager({
           </Button>
         </div>
       </form>
+      )}
 
       <div className="rounded-xl border border-border/60 p-3">
         <p className="mb-2 text-sm font-medium">{he.studentDetail.importantSubjects}</p>
@@ -173,7 +177,7 @@ export function GradeManager({
             <button
               key={s.id}
               type="button"
-              disabled={pending}
+              disabled={pending || readOnly}
               onClick={() => toggleImportant(s.id, !s.isImportant)}
               className="rounded-full"
             >
@@ -234,6 +238,7 @@ export function GradeManager({
                       <Badge variant={gradeBadgeTone(g.value) as any}>{formatGrade(g.value)}</Badge>
                     </td>
                     <td className="px-5 py-3 text-end">
+                      {!readOnly && (
                       <Button
                         type="button"
                         size="icon"
@@ -244,6 +249,7 @@ export function GradeManager({
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
+                      )}
                     </td>
                   </tr>
                 );

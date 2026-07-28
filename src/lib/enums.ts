@@ -33,3 +33,6 @@ export type UploadStatus = (typeof UPLOAD_STATUSES)[number];
 
 export const STUDENT_GENDERS = ["MALE", "FEMALE"] as const;
 export type StudentGender = (typeof STUDENT_GENDERS)[number];
+
+export const STUDENT_STATUSES = ["ACTIVE", "GRADUATED"] as const;
+export type StudentStatus = (typeof STUDENT_STATUSES)[number];

@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getViewBranchId } from "@/lib/branch-scope";
 import { ManualGradeSchema } from "@/lib/validators";
 import { he } from "@/lib/i18n/he";
+import { getCurrentSchoolYear } from "@/lib/school-year";
 
 export async function POST(
   req: Request,
@@ -42,6 +43,7 @@ export async function POST(
     });
   }
 
+  const schoolYear = await getCurrentSchoolYear();
   const grade = await prisma.grade.create({
     data: {
       studentId: student.id,
@@ -49,6 +51,7 @@ export async function POST(
       value: parsed.data.value,
       gradedAt: parsed.data.gradedAt ? new Date(parsed.data.gradedAt) : new Date(),
       source: "MANUAL",
+      schoolYear,
     },
     include: { subject: true },
   });

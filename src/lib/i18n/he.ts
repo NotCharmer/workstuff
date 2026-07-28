@@ -666,6 +666,30 @@ export const he = {
       "יומן פעילות",
     ],
   },
+  schoolYear: {
+    title: "שנת לימודים",
+    currentLabel: "שנת לימודים נוכחית",
+    startButton: "התחלת שנה חדשה",
+    startConfirm:
+      "להתחיל שנה חדשה בכל הסניפים? הציונים יישמרו תחת השנה הנוכחית, הכיתות יקודמו (יא→יב), ותלמידי יב יסומנו כסיימו. פעולה זו משפיעה על כל המערכת.",
+    startTypeConfirm: 'הקלידו "שנה חדשה" לאישור',
+    startTypePhrase: "שנה חדשה",
+    startFailed: "התחלת השנה נכשלה",
+    startSuccess: (p: {
+      fromYear: string;
+      toYear: string;
+      promoted: number;
+      graduated: number;
+    }) =>
+      `עברתם מ-${p.fromYear} ל-${p.toYear}: קודמו ${p.promoted}, סיימו ${p.graduated}`,
+    selectLabel: "שנת ציונים",
+    currentOption: (y: string) => `${y} (נוכחית)`,
+    pastOption: (y: string) => y,
+    viewingPast: (y: string) => `מציגים ציונים משנת ${y} — שנה קודמת (ארכיון).`,
+    pastGradesDesc: (y: string) => `היסטוריית ציונים לשנת ${y}`,
+    emptyCurrentYear: "אין עדיין ציונים לשנה הנוכחית — העלו או הוסיפו ידנית.",
+    graduatedBadge: "סיים לימודים",
+  },
   notes: {
     category: "קטגוריה",
     placeholder: "התצפית, התקדמות, חששות, חוזקות…",

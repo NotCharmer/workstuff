@@ -40,16 +40,21 @@ import { he } from "@/lib/i18n/he";
 import { dateLocaleHe } from "@/lib/i18n";
 import { getCurrentUserOrRedirect } from "@/lib/auth";
 import { getViewBranchId } from "@/lib/branch-scope";
+import { getCurrentSchoolYear } from "@/lib/school-year";
+import { SchoolYearSelect } from "@/components/students/school-year-select";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentDetailPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams?: { year?: string };
 }) {
   const user = await getCurrentUserOrRedirect();
   const branchId = await getViewBranchId(user);
+  const currentSchoolYear = await getCurrentSchoolYear();
   const student = await prisma.student.findFirst({
     where: { id: params.id, branchId: branchId },
     include: {
@@ -66,28 +71,45 @@ export default async function StudentDetailPage({
 
   if (!student) notFound();
 
+  const yearsFromGrades = [
+    ...new Set(
+      student.grades
+        .map((g) => g.schoolYear)
+        .filter((y): y is string => Boolean(y))
+    ),
+  ];
+  const selectedYear =
+    searchParams?.year &&
+    (yearsFromGrades.includes(searchParams.year) || searchParams.year === currentSchoolYear)
+      ? searchParams.year
+      : currentSchoolYear;
+
+  const yearGrades = student.grades.filter(
+    (g) => g.schoolYear === selectedYear || (!g.schoolYear && selectedYear === currentSchoolYear)
+  );
+
   const stats = computeStudentStats(
-    student.grades.map((g) => ({
+    yearGrades.map((g) => ({
       value: g.value,
       subject: { name: g.subject.name },
       gradedAt: g.gradedAt,
     }))
   );
 
-  const trendData = student.grades.map((g) => ({
+  const trendData = yearGrades.map((g) => ({
     date: g.gradedAt.toISOString(),
     value: g.value,
     subject: g.subject.name,
   }));
 
   let trend: "up" | "down" | "flat" = "flat";
-  if (student.grades.length >= 4) {
-    const half = Math.floor(student.grades.length / 2);
+  if (yearGrades.length >= 4) {
+    const half = Math.floor(yearGrades.length / 2);
     const firstAvg =
-      [...student.grades].reverse().slice(0, half).reduce((s, g) => s + g.value, 0) / half;
+      [...yearGrades].reverse().slice(0, half).reduce((s, g) => s + g.value, 0) / half;
     const secondAvg =
-      [...student.grades].reverse().slice(half).reduce((s, g) => s + g.value, 0) /
-      (student.grades.length - half);
+      [...yearGrades].reverse().slice(half).reduce((s, g) => s + g.value, 0) /
+      (yearGrades.length - half);
     if (secondAvg - firstAvg > 2) trend = "up";
     else if (firstAvg - secondAvg > 2) trend = "down";
   }
@@ -105,7 +127,7 @@ export default async function StudentDetailPage({
   const name = `${student.firstName} ${student.lastName}`;
   const enrolledStr = format(student.createdAt, "PP", { locale: dateLocaleHe });
   const uniqueSubjects = new Map<string, { id: string; name: string; isImportant: boolean }>();
-  for (const g of student.grades) {
+  for (const g of yearGrades) {
     if (!uniqueSubjects.has(g.subject.id)) {
       uniqueSubjects.set(g.subject.id, {
         id: g.subject.id,
@@ -120,7 +142,7 @@ export default async function StudentDetailPage({
     string,
     { id: string; value: number; gradedAt: string; source: string }[]
   >();
-  for (const g of student.grades) {
+  for (const g of yearGrades) {
     if (!subjectMeta.has(g.subject.name)) {
       subjectMeta.set(g.subject.name, {
         color: g.subject.color,
@@ -143,15 +165,23 @@ export default async function StudentDetailPage({
     grades: subjectGrades.get(s.subject) ?? [],
   }));
 
+  const isCurrentYear = selectedYear === currentSchoolYear;
+  const isGraduated = student.status === "GRADUATED";
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Button asChild variant="ghost" size="sm">
           <Link href="/students" className="gap-1">
             <ArrowLeft className="h-4 w-4 [dir=rtl]:-scale-x-100" />
             {he.studentDetail.back}
           </Link>
         </Button>
+        <SchoolYearSelect
+          currentSchoolYear={currentSchoolYear}
+          years={yearsFromGrades}
+          selectedYear={selectedYear}
+        />
       </div>
 
       <Card className="overflow-hidden">
@@ -180,6 +210,9 @@ export default async function StudentDetailPage({
                     <Users className="h-3.5 w-3.5" />
                     {student.className}
                   </span>
+                )}
+                {isGraduated && (
+                  <Badge variant="secondary">{he.schoolYear.graduatedBadge}</Badge>
                 )}
                 <span className="inline-flex items-center gap-1.5">
                   <BookOpen className="h-3.5 w-3.5" />
@@ -217,6 +250,10 @@ export default async function StudentDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      {!isCurrentYear && (
+        <p className="text-sm text-muted-foreground">{he.schoolYear.viewingPast(selectedYear)}</p>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
@@ -279,7 +316,11 @@ export default async function StudentDetailPage({
                   <EmptyState
                     icon={TrendingUp}
                     title={he.studentDetail.noGrades}
-                    description={he.studentDetail.noGradesDesc}
+                    description={
+                      isCurrentYear
+                        ? he.schoolYear.emptyCurrentYear
+                        : he.studentDetail.noGradesDesc
+                    }
                   />
                 )}
               </CardContent>
@@ -301,31 +342,59 @@ export default async function StudentDetailPage({
           <Card>
             <CardHeader>
               <CardTitle>{he.studentDetail.gradeHistory}</CardTitle>
-              <CardDescription>{he.studentDetail.gradeHistoryDesc}</CardDescription>
+              <CardDescription>
+                {isCurrentYear
+                  ? he.studentDetail.gradeHistoryDesc
+                  : he.schoolYear.pastGradesDesc(selectedYear)}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <GradeManager
-                studentId={student.id}
-                initialSubjects={[...uniqueSubjects.values()]}
-                initialGrades={student.grades.map((g) => ({
-                  id: g.id,
-                  value: g.value,
-                  source: g.source,
-                  gradedAt: g.gradedAt.toISOString(),
-                  subject: {
-                    id: g.subject.id,
-                    name: g.subject.name,
-                    color: g.subject.color,
-                    isImportant: g.subject.isImportant,
-                  },
-                }))}
-              />
-              {student.grades.length === 0 ? (
+              {isCurrentYear ? (
+                <GradeManager
+                  studentId={student.id}
+                  initialSubjects={[...uniqueSubjects.values()]}
+                  initialGrades={yearGrades.map((g) => ({
+                    id: g.id,
+                    value: g.value,
+                    source: g.source,
+                    gradedAt: g.gradedAt.toISOString(),
+                    subject: {
+                      id: g.subject.id,
+                      name: g.subject.name,
+                      color: g.subject.color,
+                      isImportant: g.subject.isImportant,
+                    },
+                  }))}
+                />
+              ) : (
+                <GradeManager
+                  studentId={student.id}
+                  initialSubjects={[...uniqueSubjects.values()]}
+                  initialGrades={yearGrades.map((g) => ({
+                    id: g.id,
+                    value: g.value,
+                    source: g.source,
+                    gradedAt: g.gradedAt.toISOString(),
+                    subject: {
+                      id: g.subject.id,
+                      name: g.subject.name,
+                      color: g.subject.color,
+                      isImportant: g.subject.isImportant,
+                    },
+                  }))}
+                  readOnly
+                />
+              )}
+              {yearGrades.length === 0 ? (
                 <div className="p-6">
                   <EmptyState
                     icon={BookOpen}
                     title={he.studentDetail.noGradesInTable}
-                    description={he.studentDetail.noGradesInTableDesc}
+                    description={
+                      isCurrentYear
+                        ? he.schoolYear.emptyCurrentYear
+                        : he.studentDetail.noGradesInTableDesc
+                    }
                   />
                 </div>
               ) : null}

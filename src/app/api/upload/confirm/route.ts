@@ -9,6 +9,7 @@ import {
   filterRowsByTargetStudents,
   TARGET_SUBJECT_FILTER_EMPTY_ERROR,
 } from "@/lib/upload/target-subjects";
+import { getCurrentSchoolYear } from "@/lib/school-year";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -75,6 +76,7 @@ export async function POST(req: Request) {
     });
 
     const out = { saved: 0, studentsCreated: 0, subjectsCreated: 0, uploadId: upload.id };
+    const schoolYear = await getCurrentSchoolYear();
 
     for (const row of filteredRows) {
       const [firstName, ...rest] = row.studentName.trim().split(/\s+/);
@@ -131,6 +133,7 @@ export async function POST(req: Request) {
           value: row.grade,
           source: "OCR",
           uploadId: upload.id,
+          schoolYear,
         },
       });
       out.saved++;

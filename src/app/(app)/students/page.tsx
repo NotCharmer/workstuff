@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { he } from "@/lib/i18n/he";
 import { getCurrentUserOrRedirect } from "@/lib/auth";
 import { getViewBranchId } from "@/lib/branch-scope";
+import { getCurrentSchoolYear } from "@/lib/school-year";
 
 export const dynamic = "force-dynamic";
 
@@ -58,20 +59,31 @@ function isImportantSubject(subjectName: string): boolean {
   return IMPORTANT_SUBJECT_TOKENS.some((token) => normalized.includes(token.toLowerCase()));
 }
 
-async function fetchStudents(params: SearchParams, branchId: string | null): Promise<StudentCardData[]> {
+async function fetchStudents(
+  params: SearchParams,
+  branchId: string | null,
+  schoolYear: string
+): Promise<StudentCardData[]> {
   const q = params.q?.trim();
   const className = params.class?.trim();
   const averageMode: "all" | "important" = params.avg === "all" ? "all" : "important";
+
+  const yearGradeFilter = {
+    OR: [{ schoolYear }, { schoolYear: null }],
+  };
 
   const students = await prisma.student.findMany({
     where: {
       AND: [
         {
           branchId,
+          status: "ACTIVE",
         },
         {
           grades: {
-            some: REQUIRED_SUBJECT_FILTER,
+            some: {
+              AND: [REQUIRED_SUBJECT_FILTER, yearGradeFilter],
+            },
           },
         },
         q
@@ -84,7 +96,10 @@ async function fetchStudents(params: SearchParams, branchId: string | null): Pro
                 {
                   grades: {
                     some: {
-                      subject: { name: { contains: q } },
+                      AND: [
+                        yearGradeFilter,
+                        { subject: { name: { contains: q } } },
+                      ],
                     },
                   },
                 },
@@ -96,6 +111,7 @@ async function fetchStudents(params: SearchParams, branchId: string | null): Pro
     },
     include: {
       grades: {
+        where: yearGradeFilter,
         include: { subject: { select: { name: true, isImportant: true } } },
         orderBy: { gradedAt: "desc" },
       },
@@ -164,10 +180,11 @@ export default async function StudentsPage({
 }) {
   const user = await getCurrentUserOrRedirect();
   const branchId = await getViewBranchId(user);
-  const students = await fetchStudents(searchParams, branchId);
+  const schoolYear = await getCurrentSchoolYear();
+  const students = await fetchStudents(searchParams, branchId, schoolYear);
 
   const classes = await prisma.student.findMany({
-    where: { branchId, className: { not: null } },
+    where: { branchId, status: "ACTIVE", className: { not: null } },
     select: { className: true },
     distinct: ["className"],
   });

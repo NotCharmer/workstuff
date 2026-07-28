@@ -53,9 +53,11 @@ model Student {
   externalId String?  // the school's student ID as printed on rosters
   firstName  String
   lastName   String
-  className  String?  // e.g. "10-B"
+  className  String?  // e.g. "יא3", "י12"
   // StudentGender: "MALE" | "FEMALE"
   gender     String?
+  // StudentStatus: "ACTIVE" | "GRADUATED"
+  status     String   @default("ACTIVE")
   avatarHue  Int      @default(210) // used to color initials avatar
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -69,6 +71,7 @@ model Student {
   @@index([branchId])
   @@index([lastName, firstName])
   @@index([className])
+  @@index([status])
 }
 
 model PrivateLesson {
@@ -103,15 +106,16 @@ model Subject {
 }
 
 model Grade {
-  id        String   @id @default(cuid())
-  studentId String
-  subjectId String
-  value     Float
-  term      String?  // "Fall 2024", "Q1", etc.
-  gradedAt  DateTime @default(now())
+  id         String   @id @default(cuid())
+  studentId  String
+  subjectId  String
+  value      Float
+  term       String?  // "Fall 2024", "Q1", etc.
+  schoolYear String?  // e.g. "2025-2026"
+  gradedAt   DateTime @default(now())
   // GradeSource: "MANUAL" | "OCR" | "IMPORT"
-  source    String   @default("MANUAL")
-  uploadId  String?
+  source     String   @default("MANUAL")
+  uploadId   String?
 
   student  Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
   subject  Subject        @relation(fields: [subjectId], references: [id], onDelete: Restrict)
@@ -120,6 +124,7 @@ model Grade {
   @@index([studentId])
   @@index([subjectId])
   @@index([gradedAt])
+  @@index([schoolYear])
 }
 
 model Note {
@@ -231,4 +236,11 @@ model Branch {
   dailyTasks DailyTask[]
   classVisits ClassVisit[]
   timetableEntries TimetableEntry[]
+}
+
+// Singleton app settings (id = "default").
+model AppConfig {
+  id                String   @id @default("default")
+  currentSchoolYear String
+  updatedAt         DateTime @updatedAt
 }

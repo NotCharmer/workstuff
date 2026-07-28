@@ -32,6 +32,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getDashboardStats, type AverageMode, type GradeAggregationMode } from "@/lib/stats";
 import { getCurrentUserOrRedirect } from "@/lib/auth";
 import { getViewBranchId } from "@/lib/branch-scope";
+import { getCurrentSchoolYear } from "@/lib/school-year";
 import { formatGrade, initials, percent } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
 import { dateLocaleHe, uploadStatusHe } from "@/lib/i18n";
@@ -54,6 +55,7 @@ export default async function DashboardPage({
 }) {
   const user = await getCurrentUserOrRedirect();
   const branchId = await getViewBranchId(user);
+  const schoolYear = await getCurrentSchoolYear();
   const averageMode: AverageMode =
     pickSearchParam(searchParams.avg) === "all" ? "all" : "important";
   const classRaw = pickSearchParam(searchParams.class)?.trim() || null;
@@ -62,7 +64,7 @@ export default async function DashboardPage({
 
   let s;
   try {
-    s = await getDashboardStats(averageMode, classRaw, gradeAggregation, branchId);
+    s = await getDashboardStats(averageMode, classRaw, gradeAggregation, branchId, schoolYear);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[dashboard] getDashboardStats failed:", e);

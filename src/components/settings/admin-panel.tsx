@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { parseRequestedBranchCodes } from "@/lib/user-branches";
 import { schoolNameForCode } from "@/lib/schools";
+import { he } from "@/lib/i18n/he";
 
 type Branch = {
   id: string;
@@ -42,16 +43,21 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
   const [userPassword, setUserPassword] = useState("");
   const [userRole, setUserRole] = useState<"ADMIN" | "BRANCH_MANAGER" | "STAFF">("STAFF");
   const [userBranchId, setUserBranchId] = useState("");
+  const [currentSchoolYear, setCurrentSchoolYear] = useState<string | null>(null);
 
   const branchById = useMemo(() => new Map(branches.map((b) => [b.id, b])), [branches]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [bRes, uRes] = await Promise.all([
+      const fetches: Promise<Response>[] = [
         fetch("/api/admin/branches"),
         fetch("/api/admin/users"),
-      ]);
+      ];
+      if (role === "ADMIN") {
+        fetches.push(fetch("/api/admin/start-school-year"));
+      }
+      const [bRes, uRes, yRes] = await Promise.all(fetches);
       const bJson = await bRes.json();
       const uJson = await uRes.json();
       if (!bRes.ok || !bJson.ok) throw new Error(bJson.error ?? "Failed loading branches");
@@ -59,12 +65,16 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
       setBranches(bJson.branches);
       setUsers(uJson.users);
       if (!userBranchId && bJson.branches[0]?.id) setUserBranchId(bJson.branches[0].id);
+      if (yRes) {
+        const yJson = await yRes.json();
+        if (yRes.ok && yJson.ok) setCurrentSchoolYear(yJson.currentSchoolYear);
+      }
     } catch (e: any) {
       toast.error(e?.message ?? "Failed loading admin data");
     } finally {
       setLoading(false);
     }
-  }, [userBranchId]);
+  }, [role, userBranchId]);
 
   useEffect(() => {
     loadAll();
@@ -140,6 +150,34 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "מחיקה נכשלה";
       toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function startSchoolYear() {
+    if (!window.confirm(he.schoolYear.startConfirm)) return;
+    const typed = window.prompt(he.schoolYear.startTypeConfirm);
+    if (typed !== he.schoolYear.startTypePhrase) {
+      toast.error(he.schoolYear.startFailed);
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/start-school-year", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error ?? he.schoolYear.startFailed);
+      setCurrentSchoolYear(json.toYear);
+      toast.success(
+        he.schoolYear.startSuccess({
+          fromYear: json.fromYear,
+          toYear: json.toYear,
+          promoted: json.promoted,
+          graduated: json.graduated,
+        })
+      );
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : he.schoolYear.startFailed);
     } finally {
       setSaving(false);
     }
@@ -357,10 +395,29 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
           <CardHeader>
             <CardTitle className="text-destructive">אזור מסוכן</CardTitle>
             <CardDescription>
-              מחיקת כל התלמידים (למשל נתוני דמו). מקצועות וסשני העלאה נשארים; אפשר למחוק ידנית ב-Neon.
+              פעולות שמשפיעות על כל המערכת. קידום שנה שומר ציונים ומקדם כיתות בכל הסניפים.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm">
+              <p className="font-medium">{he.schoolYear.currentLabel}</p>
+              <p className="mt-1 text-muted-foreground" dir="ltr">
+                {currentSchoolYear ?? "—"}
+              </p>
+            </div>
+            <Button
+              variant="default"
+              onClick={startSchoolYear}
+              disabled={saving}
+              className="gap-2"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CalendarPlus className="h-4 w-4" />
+              )}
+              {he.schoolYear.startButton}
+            </Button>
             <Button
               variant="destructive"
               onClick={purgeAllStudents}

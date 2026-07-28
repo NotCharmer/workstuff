@@ -92,15 +92,21 @@ export async function getDashboardStats(
   mode: AverageMode = "important",
   classFilter?: string | null,
   gradeAggregation: GradeAggregationMode = "latest",
-  branchId?: string | null
+  branchId?: string | null,
+  schoolYear?: string | null
 ): Promise<DashboardStats> {
   const [students, grades, uploads] = await Promise.all([
     prisma.student.findMany({
-      where: { branchId: branchId ?? null },
+      where: { branchId: branchId ?? null, status: "ACTIVE" },
       select: { id: true, firstName: true, lastName: true, className: true },
     }),
     prisma.grade.findMany({
-      where: { student: { branchId: branchId ?? null } },
+      where: {
+        student: { branchId: branchId ?? null, status: "ACTIVE" },
+        OR: schoolYear
+          ? [{ schoolYear }, { schoolYear: null }]
+          : undefined,
+      },
       include: {
         student: { select: { id: true, firstName: true, lastName: true, className: true } },
         subject: { select: { name: true, color: true, isImportant: true } },
