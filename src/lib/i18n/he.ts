@@ -675,6 +675,7 @@ export const he = {
     startTypeConfirm: 'הקלידו "שנה חדשה" לאישור',
     startTypePhrase: "שנה חדשה",
     startFailed: "התחלת השנה נכשלה",
+    startConflict: "השנה כבר קודמה (או שהבקשה אינה תואמת לשנה הנוכחית). רעננו את הדף ונסו שוב.",
     startSuccess: (p: {
       fromYear: string;
       toYear: string;

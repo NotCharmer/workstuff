@@ -51,6 +51,12 @@ export type PromoteResult =
   | { kind: "graduated"; next: string | null }
   | { kind: "unchanged"; next: string | null };
 
+export type StudentPromotionPlan = {
+  promoteTo: Map<string, string[]>; // nextClassName -> student ids
+  graduateIds: string[];
+  unchangedIds: string[];
+};
+
 /**
  * י12 → יא12 | יא3 → יב3 | יב2 → graduate
  */
@@ -67,6 +73,33 @@ export function promoteClassName(className: string | null | undefined): PromoteR
     return { kind: "graduated", next: className };
   }
   return { kind: "promoted", next: `${nextLayer}${parsed.suffix}` };
+}
+
+/**
+ * Snapshot-based promotion plan. Callers must apply this plan atomically against
+ * the same student rows that were read — never re-derive from post-update classNames.
+ */
+export function planStudentPromotions(
+  students: Array<{ id: string; className: string | null }>
+): StudentPromotionPlan {
+  const promoteTo = new Map<string, string[]>();
+  const graduateIds: string[] = [];
+  const unchangedIds: string[] = [];
+
+  for (const student of students) {
+    const result = promoteClassName(student.className);
+    if (result.kind === "graduated") {
+      graduateIds.push(student.id);
+    } else if (result.kind === "promoted" && result.next) {
+      const bucket = promoteTo.get(result.next) ?? [];
+      bucket.push(student.id);
+      promoteTo.set(result.next, bucket);
+    } else {
+      unchangedIds.push(student.id);
+    }
+  }
+
+  return { promoteTo, graduateIds, unchangedIds };
 }
 
 export async function getOrCreateAppConfig(): Promise<{ currentSchoolYear: string }> {

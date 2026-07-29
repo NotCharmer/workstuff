@@ -156,6 +156,10 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
   }
 
   async function startSchoolYear() {
+    if (!currentSchoolYear) {
+      toast.error(he.schoolYear.startFailed);
+      return;
+    }
     if (!window.confirm(he.schoolYear.startConfirm)) return;
     const typed = window.prompt(he.schoolYear.startTypeConfirm);
     if (typed !== he.schoolYear.startTypePhrase) {
@@ -164,9 +168,18 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/admin/start-school-year", { method: "POST" });
+      const res = await fetch("/api/admin/start-school-year", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fromYear: currentSchoolYear }),
+      });
       const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error ?? he.schoolYear.startFailed);
+      if (!res.ok || !json.ok) {
+        if (res.status === 409 && typeof json.currentSchoolYear === "string") {
+          setCurrentSchoolYear(json.currentSchoolYear);
+        }
+        throw new Error(json.error ?? he.schoolYear.startFailed);
+      }
       setCurrentSchoolYear(json.toYear);
       toast.success(
         he.schoolYear.startSuccess({
