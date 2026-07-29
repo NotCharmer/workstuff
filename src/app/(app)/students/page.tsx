@@ -68,6 +68,8 @@ async function fetchStudents(
   const className = params.class?.trim();
   const averageMode: "all" | "important" = params.avg === "all" ? "all" : "important";
 
+  // Averages/cards use the active school year only. Membership must NOT require
+  // current-year grades — after rollover, archived grades would hide the whole roster.
   const yearGradeFilter = {
     OR: [{ schoolYear }, { schoolYear: null }],
   };
@@ -81,9 +83,7 @@ async function fetchStudents(
         },
         {
           grades: {
-            some: {
-              AND: [REQUIRED_SUBJECT_FILTER, yearGradeFilter],
-            },
+            some: REQUIRED_SUBJECT_FILTER,
           },
         },
         q
@@ -96,10 +96,7 @@ async function fetchStudents(
                 {
                   grades: {
                     some: {
-                      AND: [
-                        yearGradeFilter,
-                        { subject: { name: { contains: q } } },
-                      ],
+                      subject: { name: { contains: q } },
                     },
                   },
                 },

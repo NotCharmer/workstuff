@@ -4,74 +4,123 @@ import { prisma } from "@/lib/db";
 import {
   getOrCreateAppConfig,
   nextSchoolYear,
-  promoteClassName,
+  planStudentPromotions,
 } from "@/lib/school-year";
 import { he } from "@/lib/i18n/he";
+
+type AppConfigRow = { currentSchoolYear: string };
 
 /**
  * ADMIN only — roll all branches to the next school year:
  * tag current grades, promote classes (יא→יב), graduate יב, bump currentSchoolYear.
+ *
+ * Requires body.fromYear to match the locked current year so concurrent or
+ * double-submit requests cannot advance twice or double-promote students.
+ * The whole mutation runs in one transaction after FOR UPDATE on AppConfig.
  */
-export async function POST() {
+export async function POST(req: Request) {
   try {
     await requireRole(["ADMIN"]);
 
-    const config = await getOrCreateAppConfig();
-    const fromYear = config.currentSchoolYear;
-    const toYear = nextSchoolYear(fromYear);
-
-    const tagResult = await prisma.grade.updateMany({
-      where: {
-        OR: [{ schoolYear: null }, { schoolYear: fromYear }],
-      },
-      data: { schoolYear: fromYear },
-    });
-
-    const students = await prisma.student.findMany({
-      where: { status: "ACTIVE" },
-      select: { id: true, className: true },
-    });
-
-    let promoted = 0;
-    let graduated = 0;
-    let unchanged = 0;
-
-    for (const student of students) {
-      const result = promoteClassName(student.className);
-      if (result.kind === "graduated") {
-        await prisma.student.update({
-          where: { id: student.id },
-          data: { status: "GRADUATED" },
-        });
-        graduated++;
-      } else if (result.kind === "promoted" && result.next) {
-        await prisma.student.update({
-          where: { id: student.id },
-          data: { className: result.next },
-        });
-        promoted++;
-      } else {
-        unchanged++;
-      }
+    const body = (await req.json().catch(() => null)) as { fromYear?: unknown } | null;
+    const expectedFromYear =
+      typeof body?.fromYear === "string" && body.fromYear.trim() ? body.fromYear.trim() : null;
+    if (!expectedFromYear) {
+      return NextResponse.json(
+        { ok: false, error: he.schoolYear.startFailed },
+        { status: 400 }
+      );
     }
 
-    await prisma.appConfig.update({
-      where: { id: "default" },
-      data: { currentSchoolYear: toYear },
-    });
+    // Ensure singleton exists before locking (create is outside the lock race window;
+    // the transaction re-checks currentSchoolYear against expectedFromYear).
+    await getOrCreateAppConfig();
 
-    return NextResponse.json({
-      ok: true,
-      fromYear,
-      toYear,
-      gradesTagged: tagResult.count,
-      promoted,
-      graduated,
-      unchanged,
-    });
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const locked = await tx.$queryRaw<AppConfigRow[]>`
+          SELECT "currentSchoolYear" FROM "AppConfig" WHERE id = 'default' FOR UPDATE
+        `;
+        const fromYear = locked[0]?.currentSchoolYear;
+        if (!fromYear) {
+          throw new Error("missing_app_config");
+        }
+        if (fromYear !== expectedFromYear) {
+          const err = new Error("year_conflict");
+          (err as Error & { status: number; currentSchoolYear: string }).status = 409;
+          (err as Error & { currentSchoolYear: string }).currentSchoolYear = fromYear;
+          throw err;
+        }
+
+        const toYear = nextSchoolYear(fromYear);
+
+        const tagResult = await tx.grade.updateMany({
+          where: {
+            OR: [{ schoolYear: null }, { schoolYear: fromYear }],
+          },
+          data: { schoolYear: fromYear },
+        });
+
+        const students = await tx.student.findMany({
+          where: { status: "ACTIVE" },
+          select: { id: true, className: true },
+        });
+
+        const plan = planStudentPromotions(students);
+
+        if (plan.graduateIds.length > 0) {
+          await tx.student.updateMany({
+            where: { id: { in: plan.graduateIds }, status: "ACTIVE" },
+            data: { status: "GRADUATED" },
+          });
+        }
+
+        for (const [nextClassName, ids] of plan.promoteTo) {
+          await tx.student.updateMany({
+            where: { id: { in: ids }, status: "ACTIVE" },
+            data: { className: nextClassName },
+          });
+        }
+
+        const bumped = await tx.appConfig.updateMany({
+          where: { id: "default", currentSchoolYear: fromYear },
+          data: { currentSchoolYear: toYear },
+        });
+        if (bumped.count !== 1) {
+          const err = new Error("year_conflict");
+          (err as Error & { status: number; currentSchoolYear: string }).status = 409;
+          (err as Error & { currentSchoolYear: string }).currentSchoolYear = toYear;
+          throw err;
+        }
+
+        return {
+          fromYear,
+          toYear,
+          gradesTagged: tagResult.count,
+          promoted: [...plan.promoteTo.values()].reduce((n, ids) => n + ids.length, 0),
+          graduated: plan.graduateIds.length,
+          unchanged: plan.unchangedIds.length,
+        };
+      },
+      { maxWait: 10_000, timeout: 120_000 }
+    );
+
+    return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
+    }
+    if (error instanceof Error && error.message === "year_conflict") {
+      const current =
+        (error as Error & { currentSchoolYear?: string }).currentSchoolYear ?? null;
+      return NextResponse.json(
+        {
+          ok: false,
+          error: he.schoolYear.startConflict,
+          currentSchoolYear: current,
+        },
+        { status: 409 }
+      );
     }
     console.error("[admin/start-school-year]", error);
     return NextResponse.json(
