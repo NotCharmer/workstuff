@@ -17,6 +17,7 @@
     "db:migrate-daily-task-assignee": "tsx scripts/migrate-daily-task-assignee-neon.ts",
     "db:migrate-school-year": "tsx scripts/migrate-school-year-neon.ts",
     "db:reset-password": "tsx scripts/reset-user-password-neon.ts",
+    "test:school-year-grade-mutability": "tsx --test src/lib/school-year-grade-mutability.test.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

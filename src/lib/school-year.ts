@@ -85,3 +85,15 @@ export async function getCurrentSchoolYear(): Promise<string> {
   const config = await getOrCreateAppConfig();
   return config.currentSchoolYear;
 }
+
+/**
+ * Past-year grades are archival. Untagged (`null`) grades are treated as
+ * belonging to the active year so pre-migration / in-flight rows remain editable.
+ */
+export function isCurrentSchoolYearGrade(
+  gradeSchoolYear: string | null | undefined,
+  currentSchoolYear: string
+): boolean {
+  if (!gradeSchoolYear) return true;
+  return gradeSchoolYear === currentSchoolYear;
+}

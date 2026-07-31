@@ -687,6 +687,7 @@ export const he = {
     pastOption: (y: string) => y,
     viewingPast: (y: string) => `מציגים ציונים משנת ${y} — שנה קודמת (ארכיון).`,
     pastGradesDesc: (y: string) => `היסטוריית ציונים לשנת ${y}`,
+    archiveReadOnly: "לא ניתן למחוק או לערוך ציונים משנת לימודים קודמת (ארכיון).",
     emptyCurrentYear: "אין עדיין ציונים לשנה הנוכחית — העלו או הוסיפו ידנית.",
     graduatedBadge: "סיים לימודים",
   },
