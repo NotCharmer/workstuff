@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { getViewBranchId } from "@/lib/branch-scope";
+import { getCurrentSchoolYear, isCurrentSchoolYearGrade } from "@/lib/school-year";
 import { he } from "@/lib/i18n/he";
 
 export async function DELETE(
@@ -14,10 +15,17 @@ export async function DELETE(
   try {
     const grade = await prisma.grade.findFirst({
       where: { id: params.id, student: { branchId: branchId } },
-      select: { id: true },
+      select: { id: true, schoolYear: true },
     });
     if (!grade) {
       return NextResponse.json({ ok: false, error: he.api.gradeNotFound }, { status: 404 });
+    }
+    const currentSchoolYear = await getCurrentSchoolYear();
+    if (!isCurrentSchoolYearGrade(grade.schoolYear, currentSchoolYear)) {
+      return NextResponse.json(
+        { ok: false, error: he.schoolYear.archiveReadOnly },
+        { status: 403 }
+      );
     }
     await prisma.grade.delete({ where: { id: grade.id } });
     return NextResponse.json({ ok: true });
