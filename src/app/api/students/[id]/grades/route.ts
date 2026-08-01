@@ -18,6 +18,12 @@ export async function POST(
   if (!student) {
     return NextResponse.json({ ok: false, error: he.api.studentNotFound }, { status: 404 });
   }
+  if (student.status === "GRADUATED") {
+    return NextResponse.json(
+      { ok: false, error: he.schoolYear.graduatedReadOnly },
+      { status: 403 }
+    );
+  }
 
   const body = await req.json().catch(() => null);
   const parsed = ManualGradeSchema.safeParse(body);

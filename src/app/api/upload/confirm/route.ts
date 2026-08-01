@@ -9,6 +9,7 @@ import {
   filterRowsByTargetStudents,
   TARGET_SUBJECT_FILTER_EMPTY_ERROR,
 } from "@/lib/upload/target-subjects";
+import { resolveExternalIdUploadTarget } from "@/lib/upload/resolve-external-id-target";
 import { getCurrentSchoolYear } from "@/lib/school-year";
 
 export const runtime = "nodejs";
@@ -75,7 +76,13 @@ export async function POST(req: Request) {
       },
     });
 
-    const out = { saved: 0, studentsCreated: 0, subjectsCreated: 0, uploadId: upload.id };
+    const out = {
+      saved: 0,
+      studentsCreated: 0,
+      subjectsCreated: 0,
+      skippedGraduated: 0,
+      uploadId: upload.id,
+    };
     const schoolYear = await getCurrentSchoolYear();
 
     for (const row of filteredRows) {
@@ -85,13 +92,63 @@ export async function POST(req: Request) {
       const rowExternalId = row.externalId?.toString().trim();
       const reliableExternalId = useExternalId && rowExternalId ? rowExternalId : null;
 
-      const studentWhere: Prisma.StudentWhereInput = reliableExternalId
-        ? { branchId, externalId: reliableExternalId }
-        : row.className
-          ? { branchId, firstName, lastName, className: row.className }
-          : { branchId, firstName, lastName };
+      let student: Awaited<ReturnType<typeof prisma.student.findFirst>> = null;
 
-      let student = await prisma.student.findFirst({ where: studentWhere });
+      if (reliableExternalId) {
+        const active = await prisma.student.findFirst({
+          where: { branchId, externalId: reliableExternalId, status: "ACTIVE" },
+        });
+        const graduated = active
+          ? null
+          : await prisma.student.findFirst({
+              where: {
+                branchId,
+                externalId: reliableExternalId,
+                status: "GRADUATED",
+              },
+            });
+        const target = resolveExternalIdUploadTarget({
+          activeMatch: Boolean(active),
+          graduatedMatch: Boolean(graduated),
+        });
+        if (target.kind === "skip_graduated") {
+          out.skippedGraduated++;
+          continue;
+        }
+        student = active;
+      } else {
+        const activeWhere: Prisma.StudentWhereInput = row.className
+          ? {
+              branchId,
+              firstName,
+              lastName,
+              className: row.className,
+              status: "ACTIVE",
+            }
+          : { branchId, firstName, lastName, status: "ACTIVE" };
+        student = await prisma.student.findFirst({ where: activeWhere });
+        if (!student) {
+          // Same identity keys owned only by a graduate → skip (do not spawn a
+          // ghost ACTIVE row or attach current-year grades to the archive).
+          const graduatedWhere: Prisma.StudentWhereInput = row.className
+            ? {
+                branchId,
+                firstName,
+                lastName,
+                className: row.className,
+                status: "GRADUATED",
+              }
+            : { branchId, firstName, lastName, status: "GRADUATED" };
+          const graduated = await prisma.student.findFirst({
+            where: graduatedWhere,
+          });
+          if (graduated) {
+            out.skippedGraduated++;
+            continue;
+          }
+        }
+      }
+
       if (!student) {
         student = await prisma.student.create({
           data: {

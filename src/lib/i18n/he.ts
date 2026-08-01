@@ -689,6 +689,7 @@ export const he = {
     pastGradesDesc: (y: string) => `היסטוריית ציונים לשנת ${y}`,
     emptyCurrentYear: "אין עדיין ציונים לשנה הנוכחית — העלו או הוסיפו ידנית.",
     graduatedBadge: "סיים לימודים",
+    graduatedReadOnly: "לא ניתן להוסיף ציונים לתלמיד שסיים לימודים.",
   },
   notes: {
     category: "קטגוריה",
