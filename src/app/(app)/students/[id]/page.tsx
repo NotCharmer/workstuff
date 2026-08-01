@@ -349,42 +349,23 @@ export default async function StudentDetailPage({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {isCurrentYear ? (
-                <GradeManager
-                  studentId={student.id}
-                  initialSubjects={[...uniqueSubjects.values()]}
-                  initialGrades={yearGrades.map((g) => ({
-                    id: g.id,
-                    value: g.value,
-                    source: g.source,
-                    gradedAt: g.gradedAt.toISOString(),
-                    subject: {
-                      id: g.subject.id,
-                      name: g.subject.name,
-                      color: g.subject.color,
-                      isImportant: g.subject.isImportant,
-                    },
-                  }))}
-                />
-              ) : (
-                <GradeManager
-                  studentId={student.id}
-                  initialSubjects={[...uniqueSubjects.values()]}
-                  initialGrades={yearGrades.map((g) => ({
-                    id: g.id,
-                    value: g.value,
-                    source: g.source,
-                    gradedAt: g.gradedAt.toISOString(),
-                    subject: {
-                      id: g.subject.id,
-                      name: g.subject.name,
-                      color: g.subject.color,
-                      isImportant: g.subject.isImportant,
-                    },
-                  }))}
-                  readOnly
-                />
-              )}
+              <GradeManager
+                studentId={student.id}
+                initialSubjects={[...uniqueSubjects.values()]}
+                initialGrades={yearGrades.map((g) => ({
+                  id: g.id,
+                  value: g.value,
+                  source: g.source,
+                  gradedAt: g.gradedAt.toISOString(),
+                  subject: {
+                    id: g.subject.id,
+                    name: g.subject.name,
+                    color: g.subject.color,
+                    isImportant: g.subject.isImportant,
+                  },
+                }))}
+                readOnly={!isCurrentYear || isGraduated}
+              />
               {yearGrades.length === 0 ? (
                 <div className="p-6">
                   <EmptyState
