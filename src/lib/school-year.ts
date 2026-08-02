@@ -27,9 +27,14 @@ export function nextSchoolYear(year: string): string {
   return `${start + 1}-${start + 2}`;
 }
 
-/** Normalize class labels like "יא 3" → "יא3". */
+/**
+ * Normalize class labels like "יא 3", "י' 3", "י״א2" → "יא3" / "י3" / "יא2".
+ * Israeli school notation often marks layers with geresh/gershayim (י', יא', י״א).
+ */
 export function normalizeClassName(className: string): string {
-  return className.replace(/\s+/g, "").trim();
+  return className
+    .replace(/[\s'"`׳״‘’“”ʼ]+/g, "")
+    .trim();
 }
 
 /**
