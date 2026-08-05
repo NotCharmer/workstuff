@@ -26,7 +26,9 @@ export default async function PrivateLessonsPage() {
   const branchId = await getViewBranchId(user);
   const [students, lessons] = await Promise.all([
     prisma.student.findMany({
-      where: { branchId: branchId },
+      // Graduates keep יב class labels after rollover; only ACTIVE students
+      // belong in the create-lesson picker (API also rejects GRADUATED).
+      where: { branchId: branchId, status: "ACTIVE" },
       select: {
         id: true,
         firstName: true,

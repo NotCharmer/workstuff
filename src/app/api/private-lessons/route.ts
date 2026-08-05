@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { getViewBranchId } from "@/lib/branch-scope";
+import { canCreatePrivateLessonForStudent } from "@/lib/private-lesson-student";
 import { PrivateLessonSchema } from "@/lib/validators";
 import { he } from "@/lib/i18n/he";
 
@@ -58,11 +59,18 @@ export async function POST(req: Request) {
 
   const student = await prisma.student.findFirst({
     where: { id: parsed.data.studentId, branchId: branchId },
+    select: { id: true, status: true },
   });
   if (!student) {
     return NextResponse.json(
       { ok: false, error: he.api.studentNotFound },
       { status: 404 }
+    );
+  }
+  if (!canCreatePrivateLessonForStudent(student.status)) {
+    return NextResponse.json(
+      { ok: false, error: he.privateLessons.errors.graduatedStudent },
+      { status: 403 }
     );
   }
 
