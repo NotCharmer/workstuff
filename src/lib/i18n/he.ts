@@ -403,6 +403,7 @@ export const he = {
       studentRequired: "בחרו תלמיד",
       dateRequired: "תאריך לא תקין",
       durationRange: "משך השיעור חייב להיות בין 5 ל־480 דקות",
+      graduatedStudent: "לא ניתן לרשום שיעור פרטי לתלמיד שסיים לימודים",
       saveFailed: "שמירה נכשלה",
       deleteFailed: "מחיקה נכשלה",
     },
