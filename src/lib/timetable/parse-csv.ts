@@ -135,12 +135,30 @@ export function parseTimetableCsv(
         continue;
       }
 
+      // Prefer an explicit class column when present. Filename inference is only
+      // a fallback for single-class matrix exports that omit כיתה/className —
+      // otherwise multi-class matrices collapse under one label and confirm
+      // wholesale-replaces that class with a mashup of every class's periods.
+      let className: string;
+      if (classCol) {
+        className = (r[classCol] ?? "").trim();
+        if (!className) {
+          const hasSubject = dayColumns.some((d) => (r[d] ?? "").trim());
+          if (hasSubject) {
+            warnings.push(`${he.common.row} ${i + 2}: ${he.timetable.rowInvalid}`);
+          }
+          continue;
+        }
+      } else {
+        className = inferredClassName;
+      }
+
       for (const dayColName of dayColumns) {
         const subject = (r[dayColName] ?? "").trim();
         if (!subject) continue;
         rows.push({
           id: randomUUID(),
-          className: inferredClassName,
+          className,
           dayOfWeek: canonicalDay(dayColName),
           startTime,
           endTime,
