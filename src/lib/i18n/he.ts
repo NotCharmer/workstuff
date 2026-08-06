@@ -296,7 +296,7 @@ export const he = {
     room: "חדר",
     lowConfidence: (n: number) => `${n} שורות בביטחון נמוך`,
     csvHeaders:
-      "ב-CSV נדרשות עמודות: className/dayOfWeek/startTime/endTime/subject (אפשר גם כיתה/יום/התחלה/סיום/מקצוע).",
+      "ב-CSV נדרשות עמודות: className/dayOfWeek/startTime/endTime/subject (אפשר גם כיתה/יום/התחלה/סיום/מקצוע), או פורמט מטריצה עם זמן ועמודות ימים (אופציונלי: כיתה).",
     rowInvalid: "שורת מערכת שעות לא תקינה",
     noRows: "לא נמצאו שורות מערכת שעות תקינות.",
   },
