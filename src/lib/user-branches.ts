@@ -11,12 +11,20 @@ export function formatRequestedBranchCodes(codes: string[]): string {
 }
 
 export async function getUserAccessibleBranchIds(userId: string): Promise<string[]> {
-  const rows = await prisma.userBranchAccess.findMany({
-    where: { userId },
-    select: { branchId: true },
-    orderBy: { createdAt: "asc" },
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      branchId: true,
+      branchAccess: {
+        select: { branchId: true },
+        orderBy: { createdAt: "asc" },
+      },
+    },
   });
-  return rows.map((row) => row.branchId);
+  if (!user?.branchId) return [];
+
+  const approvedIds = user.branchAccess.map((row) => row.branchId);
+  return approvedIds.includes(user.branchId) ? [user.branchId] : [];
 }
 
 export async function syncUserBranchAccess(userId: string, branchIds: string[]): Promise<void> {
