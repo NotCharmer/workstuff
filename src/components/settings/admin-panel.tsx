@@ -174,6 +174,8 @@ export function AdminPanel({ role }: { role: "ADMIN" | "BRANCH_MANAGER" }) {
           toYear: json.toYear,
           promoted: json.promoted,
           graduated: json.graduated,
+          timetablePromoted: json.timetablePromoted,
+          timetableRemoved: json.timetableRemoved,
         })
       );
     } catch (e: unknown) {

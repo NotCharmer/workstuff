@@ -27,9 +27,14 @@ export function nextSchoolYear(year: string): string {
   return `${start + 1}-${start + 2}`;
 }
 
-/** Normalize class labels like "יא 3" → "יא3". */
+/**
+ * Normalize class labels like "יא 3", "י' 3", "י״א2" → "יא3" / "י3" / "יא2".
+ * Israeli school notation often marks layers with geresh/gershayim (י', יא', י״א).
+ */
 export function normalizeClassName(className: string): string {
-  return className.replace(/\s+/g, "").trim();
+  return className
+    .replace(/[\s'"`׳״‘’“”ʼ]+/g, "")
+    .trim();
 }
 
 /**
@@ -67,6 +72,24 @@ export function promoteClassName(className: string | null | undefined): PromoteR
     return { kind: "graduated", next: className };
   }
   return { kind: "promoted", next: `${nextLayer}${parsed.suffix}` };
+}
+
+export type TimetableClassAction =
+  | { kind: "promote"; next: string }
+  | { kind: "delete" }
+  | { kind: "keep" };
+
+/**
+ * Live timetable rows are keyed by className with no schoolYear.
+ * On rollover they must move with the cohort: יא→יב, and יב schedules are removed.
+ */
+export function planTimetableClassAction(className: string): TimetableClassAction {
+  const result = promoteClassName(className);
+  if (result.kind === "graduated") return { kind: "delete" };
+  if (result.kind === "promoted" && result.next) {
+    return { kind: "promote", next: result.next };
+  }
+  return { kind: "keep" };
 }
 
 export async function getOrCreateAppConfig(): Promise<{ currentSchoolYear: string }> {

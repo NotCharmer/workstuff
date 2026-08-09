@@ -671,7 +671,7 @@ export const he = {
     currentLabel: "שנת לימודים נוכחית",
     startButton: "התחלת שנה חדשה",
     startConfirm:
-      "להתחיל שנה חדשה בכל הסניפים? הציונים יישמרו תחת השנה הנוכחית, הכיתות יקודמו (יא→יב), ותלמידי יב יסומנו כסיימו. פעולה זו משפיעה על כל המערכת.",
+      "להתחיל שנה חדשה בכל הסניפים? הציונים יישמרו תחת השנה הנוכחית, הכיתות ומערכות השעות יקודמו (יא→יב), מערכות של יב יוסרו, ותלמידי יב יסומנו כסיימו. פעולה זו משפיעה על כל המערכת.",
     startTypeConfirm: 'הקלידו "שנה חדשה" לאישור',
     startTypePhrase: "שנה חדשה",
     startFailed: "התחלת השנה נכשלה",
@@ -680,8 +680,13 @@ export const he = {
       toYear: string;
       promoted: number;
       graduated: number;
+      timetablePromoted?: number;
+      timetableRemoved?: number;
     }) =>
-      `עברתם מ-${p.fromYear} ל-${p.toYear}: קודמו ${p.promoted}, סיימו ${p.graduated}`,
+      `עברתם מ-${p.fromYear} ל-${p.toYear}: קודמו ${p.promoted}, סיימו ${p.graduated}` +
+      (typeof p.timetablePromoted === "number" && typeof p.timetableRemoved === "number"
+        ? `, מערכות שעות: קודמו ${p.timetablePromoted}, הוסרו ${p.timetableRemoved}`
+        : ""),
     selectLabel: "שנת ציונים",
     currentOption: (y: string) => `${y} (נוכחית)`,
     pastOption: (y: string) => y,
