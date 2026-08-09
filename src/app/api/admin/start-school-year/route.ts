@@ -4,13 +4,15 @@ import { prisma } from "@/lib/db";
 import {
   getOrCreateAppConfig,
   nextSchoolYear,
+  planTimetableClassAction,
   promoteClassName,
 } from "@/lib/school-year";
 import { he } from "@/lib/i18n/he";
 
 /**
  * ADMIN only — roll all branches to the next school year:
- * tag current grades, promote classes (יא→יב), graduate יב, bump currentSchoolYear.
+ * tag current grades, promote classes (יא→יב), graduate יב,
+ * advance live timetable class labels, bump currentSchoolYear.
  */
 export async function POST() {
   try {
@@ -55,6 +57,35 @@ export async function POST() {
       }
     }
 
+    // Timetable entries are the live schedule (no schoolYear). Delete graduated
+    // class grids first, then rename remaining labels so cohorts keep their slots.
+    const timetableEntries = await prisma.timetableEntry.findMany({
+      select: { id: true, className: true },
+    });
+    let timetablePromoted = 0;
+    let timetableRemoved = 0;
+    let timetableUnchanged = 0;
+
+    const toPromote: { id: string; next: string }[] = [];
+    for (const entry of timetableEntries) {
+      const action = planTimetableClassAction(entry.className);
+      if (action.kind === "delete") {
+        await prisma.timetableEntry.delete({ where: { id: entry.id } });
+        timetableRemoved++;
+      } else if (action.kind === "promote") {
+        toPromote.push({ id: entry.id, next: action.next });
+      } else {
+        timetableUnchanged++;
+      }
+    }
+    for (const entry of toPromote) {
+      await prisma.timetableEntry.update({
+        where: { id: entry.id },
+        data: { className: entry.next },
+      });
+      timetablePromoted++;
+    }
+
     await prisma.appConfig.update({
       where: { id: "default" },
       data: { currentSchoolYear: toYear },
@@ -68,6 +99,9 @@ export async function POST() {
       promoted,
       graduated,
       unchanged,
+      timetablePromoted,
+      timetableRemoved,
+      timetableUnchanged,
     });
   } catch (error) {
     if (error instanceof AuthError) {
