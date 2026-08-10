@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { resolveStaffPassword } from "@/lib/default-credentials";
-import { getDefaultStaffPassword } from "@/lib/server-env";
 import { TeamUserCreateSchema } from "@/lib/validators";
 import { AuthError, getCurrentUser, requireRole } from "@/lib/auth";
 
@@ -29,17 +27,7 @@ export async function GET() {
         createdAt: true,
       },
     });
-    const payload: {
-      ok: true;
-      users: typeof users;
-      defaultStaffPassword?: string;
-    } = { ok: true, users };
-
-    if (actor.role === "ADMIN" || actor.role === "BRANCH_MANAGER") {
-      payload.defaultStaffPassword = getDefaultStaffPassword();
-    }
-
-    return NextResponse.json(payload);
+    return NextResponse.json({ ok: true, users });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
@@ -70,8 +58,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const password = resolveStaffPassword(parsed.data.password);
-    const passwordHash = await hash(password, 12);
+    const passwordHash = await hash(parsed.data.password, 12);
     const placeholderName =
       parsed.data.name?.trim() ||
       parsed.data.email.split("@")[0]?.trim() ||

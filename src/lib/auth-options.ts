@@ -2,6 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { isLegacySharedStaffPassword } from "@/lib/default-credentials";
 import { isStaffGateEmail } from "@/lib/staff-gate";
 import { USER_ROLES, USER_STATUSES, type UserRole, type UserStatus } from "@/lib/enums";
 
@@ -40,6 +41,11 @@ export const authOptions: NextAuthOptions = {
         if (!user?.passwordHash) return null;
         const ok = await compare(password, user.passwordHash);
         if (!ok) return null;
+        // The legacy first-login password is shown on the public login page.
+        // Do not let an attacker claim a pending invite with that shared secret.
+        if (!user.onboardingCompleted && isLegacySharedStaffPassword(password)) {
+          return null;
+        }
 
         const role: UserRole = roleSet.has(user.role) ? (user.role as UserRole) : "STAFF";
         const status: UserStatus = statusSet.has(user.status) ? (user.status as UserStatus) : "PENDING";

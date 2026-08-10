@@ -33,7 +33,6 @@ export function TeamPanel({ branchName, actorId, actorRole, canManageTeam }: Tea
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [defaultStaffPassword, setDefaultStaffPassword] = useState<string | null>(null);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -42,9 +41,6 @@ export function TeamPanel({ branchName, actorId, actorRole, canManageTeam }: Tea
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error ?? he.team.loadFailed);
       setUsers(json.users);
-      if (typeof json.defaultStaffPassword === "string") {
-        setDefaultStaffPassword(json.defaultStaffPassword);
-      }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : he.team.loadFailed;
       toast.error(message);
@@ -58,8 +54,12 @@ export function TeamPanel({ branchName, actorId, actorRole, canManageTeam }: Tea
   }, [loadUsers]);
 
   async function createUser() {
-    if (!email.trim()) return;
     const customPassword = password.trim();
+    if (!email.trim()) return;
+    if (customPassword.length < 8) {
+      toast.error(he.team.resetPasswordPlaceholder);
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/team/users", {
@@ -68,7 +68,7 @@ export function TeamPanel({ branchName, actorId, actorRole, canManageTeam }: Tea
         body: JSON.stringify({
           ...(name.trim() ? { name: name.trim() } : {}),
           email: email.trim(),
-          ...(customPassword ? { password: customPassword } : {}),
+          password: customPassword,
         }),
       });
       const json = await res.json();
@@ -76,13 +76,7 @@ export function TeamPanel({ branchName, actorId, actorRole, canManageTeam }: Tea
       setName("");
       setEmail("");
       setPassword("");
-      if (customPassword) {
-        toast.success(he.team.created);
-      } else {
-        toast.success(
-          he.team.createdWithDefault(defaultStaffPassword ?? "Staff123!")
-        );
-      }
+      toast.success(he.team.created);
       await loadUsers();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : he.team.createFailed;
@@ -158,18 +152,11 @@ export function TeamPanel({ branchName, actorId, actorRole, canManageTeam }: Tea
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={
-                    defaultStaffPassword
-                      ? he.team.useDefaultPassword
-                      : "לפחות 8 תווים (אופציונלי)"
-                  }
+                  placeholder={he.team.resetPasswordPlaceholder}
                   dir="ltr"
+                  minLength={8}
+                  required
                 />
-                {defaultStaffPassword && (
-                  <p className="text-xs text-muted-foreground" dir="ltr">
-                    {he.team.passwordOptionalHint(defaultStaffPassword)}
-                  </p>
-                )}
               </div>
             </div>
             <Button onClick={createUser} disabled={saving} className="gap-2">

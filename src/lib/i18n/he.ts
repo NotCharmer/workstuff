@@ -533,9 +533,6 @@ export const he = {
     fullNameOptionalHint: "אם ריק — העובד ימלא שם בכניסה הראשונה שלו.",
     email: "אימייל",
     password: "סיסמה זמנית לכניסה ראשונה",
-    passwordOptionalHint: (pw: string) =>
-      `אם השדה ריק — סיסמה זמנית: ${pw}. העובד יחליף אותה בכניסה הראשונה.`,
-    useDefaultPassword: "סיסמת ברירת מחדל",
     createButton: "יצירת משתמש",
     listTitle: "משתמשים בסניף",
     permissionsHint:
@@ -563,8 +560,6 @@ export const he = {
     loading: "טוען…",
     empty: "אין עדיין משתמשים בסניף.",
     created: "נוצר — העובד יתחבר עם הסיסמה הזמנית, יגדיר פרופיל, ואז תאשרו",
-    createdWithDefault: (pw: string) =>
-      `נוצר — סיסמה זמנית: ${pw}. העובד מחליף אותה בכניסה הראשונה, ואז תאשרו תפקיד ו«פעיל».`,
     updated: "הרשאות עודכנו",
     loadFailed: "טעינת רשימת המשתמשים נכשלה",
     createFailed: "יצירת המשתמש נכשלה",
