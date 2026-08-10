@@ -3,6 +3,8 @@ import { parseGradeCsv, isCsvUpload } from "@/lib/csv/parse-grade-csv";
 import { parseGradeImage } from "@/lib/ocr";
 import type { ParseResult } from "@/lib/ocr/types";
 import { he } from "@/lib/i18n/he";
+import { AuthError, getCurrentUser } from "@/lib/auth";
+import { requireViewBranchId } from "@/lib/branch-scope";
 import {
   filterRowsByTargetStudents,
   TARGET_SUBJECT_FILTER_EMPTY_ERROR,
@@ -17,6 +19,12 @@ function applyOptionalTargetFilter(result: ParseResult): ParseResult {
 
 export async function POST(req: Request) {
   try {
+    const user = await getCurrentUser();
+    if (user.status !== "ACTIVE") {
+      return NextResponse.json({ ok: false, error: "החשבון אינו פעיל" }, { status: 403 });
+    }
+    const branchId = await requireViewBranchId(user);
+
     const form = await req.formData();
     const file = form.get("file");
 
@@ -43,7 +51,7 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
-      return NextResponse.json({ ok: true, fileName: file.name, ...filtered });
+      return NextResponse.json({ ok: true, branchId, fileName: file.name, ...filtered });
     }
 
     const allowed = [
@@ -70,8 +78,11 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    return NextResponse.json({ ok: true, fileName: file.name, ...filtered });
+    return NextResponse.json({ ok: true, branchId, fileName: file.name, ...filtered });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
+    }
     console.error("[upload/parse]", error);
     return NextResponse.json({ ok: false, error: he.api.saveFailed }, { status: 500 });
   }

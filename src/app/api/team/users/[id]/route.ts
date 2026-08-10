@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { TeamUserPatchSchema } from "@/lib/validators";
 import { AuthError, requireRole } from "@/lib/auth";
+import { syncUserBranchAccess } from "@/lib/user-branches";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -59,6 +60,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       data,
       select: { id: true, email: true, name: true, role: true, status: true },
     });
+    if (user.role !== "ADMIN" && target.branchId && (parsed.data.role || parsed.data.status)) {
+      await syncUserBranchAccess(user.id, [target.branchId]);
+    }
 
     return NextResponse.json({ ok: true, user });
   } catch (error) {

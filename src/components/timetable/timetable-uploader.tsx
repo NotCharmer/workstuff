@@ -15,6 +15,7 @@ export function TimetableUploader() {
   const router = useRouter();
   const [rows, setRows] = useState<TimetableRow[]>([]);
   const [fileName, setFileName] = useState("");
+  const [reviewBranchId, setReviewBranchId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const warnings = useMemo(
@@ -36,6 +37,7 @@ export function TimetableUploader() {
       }
       setRows(json.rows);
       setFileName(json.fileName ?? file.name);
+      setReviewBranchId(json.branchId ?? null);
       toast.success(he.timetable.extracted(json.rows.length));
     } finally {
       setBusy(false);
@@ -74,7 +76,7 @@ export function TimetableUploader() {
       const res = await fetch("/api/timetable/confirm", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ rows }),
+        body: JSON.stringify({ branchId: reviewBranchId ?? undefined, rows }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.ok) {

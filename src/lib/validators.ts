@@ -20,6 +20,7 @@ export type GradeRow = z.infer<typeof GradeRowSchema>;
 
 export const ReviewPayloadSchema = z.object({
   fileName: z.string(),
+  branchId: z.string().min(1).optional(),
   rows: z.array(GradeRowSchema).min(1, he.validators.atLeastOneRow),
   avgConfidence: z.number().min(0).max(1).optional(),
   imagePath: z.string().optional(),
@@ -126,6 +127,7 @@ export const TimetableRowSchema = z.object({
 });
 
 export const TimetablePayloadSchema = z.object({
+  branchId: z.string().min(1).optional(),
   rows: z.array(TimetableRowSchema).min(1),
 });
 

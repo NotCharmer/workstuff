@@ -66,7 +66,7 @@ async function readApiJson(res: Response): Promise<{
   }
 }
 
-type Pending = ParseResult & { fileName: string };
+type Pending = ParseResult & { fileName: string; branchId?: string };
 
 type EditableRow = ExtractedRow & { errors?: Record<string, string> };
 
@@ -156,6 +156,7 @@ export function ReviewEditor() {
           credentials: "same-origin",
           body: JSON.stringify({
             fileName: pending.fileName,
+            branchId: pending.branchId,
             rows: validated.map((r) => ({
               id: r.id,
               studentName: r.studentName,
