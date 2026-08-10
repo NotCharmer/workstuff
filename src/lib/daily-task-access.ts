@@ -165,8 +165,22 @@ export async function loadTaskForUser(
   });
 }
 
-export function assertCanModifyTask(user: CurrentUser, task: DailyTaskRecord): void {
+export function assertCanModifyTask(
+  user: CurrentUser,
+  task: DailyTaskRecord,
+  patch: { done?: boolean; title?: string }
+): void {
   if (canManageOthersTasks(user.role)) {
+    return;
+  }
+
+  const changesTitle = Object.prototype.hasOwnProperty.call(patch, "title");
+  if (changesTitle && task.authorId !== user.id) {
+    throw new Error("FORBIDDEN");
+  }
+
+  const changesDone = Object.prototype.hasOwnProperty.call(patch, "done");
+  if (!changesDone) {
     return;
   }
 
@@ -184,14 +198,7 @@ export function assertCanDeleteTask(user: CurrentUser, task: DailyTaskRecord): v
     return;
   }
 
-  if (isGeneralTask(task)) {
-    if (task.authorId !== user.id) {
-      throw new Error("FORBIDDEN");
-    }
-    return;
-  }
-
-  if (task.assigneeId !== user.id && task.authorId !== user.id) {
+  if (task.authorId !== user.id) {
     throw new Error("FORBIDDEN");
   }
 }

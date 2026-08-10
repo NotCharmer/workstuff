@@ -72,6 +72,7 @@ function TaskList({
   isFuture,
   emptyTitle,
   emptyDesc,
+  canManage,
   currentUserId,
   onToggle,
   onDelete,
@@ -81,6 +82,7 @@ function TaskList({
   isFuture: boolean;
   emptyTitle: string;
   emptyDesc?: string;
+  canManage: boolean;
   currentUserId: string | null;
   onToggle: (task: Task) => void;
   onDelete: (task: Task) => void;
@@ -111,6 +113,7 @@ function TaskList({
           task.assigneeId &&
           task.author?.id &&
           task.author.id !== task.assigneeId;
+        const canDelete = canManage || (currentUserId !== null && task.authorId === currentUserId);
         return (
           <li
             key={task.id}
@@ -150,14 +153,16 @@ function TaskList({
               )}
             </div>
 
-            <button
-              type="button"
-              aria-label={he.dailyTasks.deleteTask}
-              onClick={() => onDelete(task)}
-              className="invisible h-6 w-6 shrink-0 rounded-md text-muted-foreground/50 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:visible"
-            >
-              <Trash2 className="mx-auto h-3.5 w-3.5" />
-            </button>
+            {canDelete && (
+              <button
+                type="button"
+                aria-label={he.dailyTasks.deleteTask}
+                onClick={() => onDelete(task)}
+                className="invisible h-6 w-6 shrink-0 rounded-md text-muted-foreground/50 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:visible"
+              >
+                <Trash2 className="mx-auto h-3.5 w-3.5" />
+              </button>
+            )}
           </li>
         );
       })}
@@ -173,6 +178,8 @@ function TaskSection({
   isFuture,
   emptyTitle,
   emptyDesc,
+  canManage,
+  currentUserId,
   placeholder,
   newTitle,
   setNewTitle,
@@ -188,6 +195,8 @@ function TaskSection({
   isFuture: boolean;
   emptyTitle: string;
   emptyDesc?: string;
+  canManage: boolean;
+  currentUserId: string | null;
   placeholder: string;
   newTitle: string;
   setNewTitle: (v: string) => void;
@@ -255,7 +264,8 @@ function TaskSection({
           isFuture={isFuture}
           emptyTitle={emptyTitle}
           emptyDesc={emptyDesc}
-          currentUserId={null}
+          canManage={canManage}
+          currentUserId={currentUserId}
           onToggle={onToggle}
           onDelete={onDelete}
         />
@@ -537,6 +547,8 @@ export default function DailyTasksPage() {
           isFuture={isFuture}
           emptyTitle={he.dailyTasks.generalEmptyTitle}
           emptyDesc={he.dailyTasks.generalEmptyDesc}
+          canManage={canManage}
+          currentUserId={currentUserId}
           placeholder={he.dailyTasks.addGeneralPlaceholder}
           newTitle={newGeneralTitle}
           setNewTitle={setNewGeneralTitle}
@@ -560,6 +572,8 @@ export default function DailyTasksPage() {
           isFuture={isFuture}
           emptyTitle={he.dailyTasks.personalEmptyTitle}
           emptyDesc={he.dailyTasks.personalEmptyDesc}
+          canManage={canManage}
+          currentUserId={currentUserId}
           placeholder={
             canManage && selectedAssignee
               ? he.dailyTasks.addPersonalForPlaceholder(selectedAssignee.name)

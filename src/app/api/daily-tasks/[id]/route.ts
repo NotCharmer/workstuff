@@ -27,8 +27,6 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: he.dailyTasks.taskNotFound }, { status: 404 });
     }
 
-    assertCanModifyTask(user, task);
-
     const body = await req.json().catch(() => null);
     const parsed = PatchDailyTaskSchema.safeParse(body);
     if (!parsed.success) {
@@ -37,6 +35,8 @@ export async function PATCH(
         { status: 400 }
       );
     }
+
+    assertCanModifyTask(user, task, parsed.data);
 
     const updated = await prisma.dailyTask.update({
       where: { id: params.id },
