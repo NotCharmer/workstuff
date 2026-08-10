@@ -3,6 +3,8 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { TeamUserPatchSchema } from "@/lib/validators";
 import { AuthError, requireRole } from "@/lib/auth";
+import type { UserRole, UserStatus } from "@/lib/enums";
+import { approvedBranchAccessIds } from "@/lib/user-branches";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -38,10 +40,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
 
     if (actor.role === "BRANCH_MANAGER") {
-      if (target.role === "ADMIN" || parsed.data.role === "ADMIN") {
+      if (target.role !== "STAFF") {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
-      if (parsed.data.role === "BRANCH_MANAGER") {
+      if (parsed.data.role && parsed.data.role !== "STAFF") {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
       if (parsed.data.status === "BLOCKED") {
@@ -49,15 +51,32 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       }
     }
 
-    const data: { role?: string; status?: string; passwordHash?: string } = {};
+    const data: { role?: UserRole; status?: UserStatus; passwordHash?: string } = {};
     if (parsed.data.role) data.role = parsed.data.role;
     if (parsed.data.status) data.status = parsed.data.status;
     if (parsed.data.password) data.passwordHash = await hash(parsed.data.password, 12);
 
-    const user = await prisma.user.update({
-      where: { id: params.id },
-      data,
-      select: { id: true, email: true, name: true, role: true, status: true },
+    const shouldSyncBranchAccess = parsed.data.status === "ACTIVE";
+
+    const user = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: params.id },
+        data,
+        select: { id: true, email: true, name: true, role: true, status: true, branchId: true },
+      });
+
+      if (shouldSyncBranchAccess) {
+        const branchIds = approvedBranchAccessIds(updated.branchId);
+        await tx.userBranchAccess.deleteMany({ where: { userId: updated.id } });
+        if (branchIds.length > 0) {
+          await tx.userBranchAccess.createMany({
+            data: branchIds.map((branchId) => ({ userId: updated.id, branchId })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      return updated;
     });
 
     return NextResponse.json({ ok: true, user });
