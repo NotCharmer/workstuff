@@ -25,7 +25,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     const target = await prisma.user.findUnique({
       where: { id: params.id },
-      select: { id: true, role: true, branchId: true },
+      select: { id: true, role: true, status: true, branchId: true },
     });
     if (!target) {
       return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
@@ -34,7 +34,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if (!actor.branchId || target.branchId !== actor.branchId) {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
-      if (target.role === "ADMIN" || parsed.data.role === "ADMIN") {
+      if (target.role !== "STAFF") {
+        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+      }
+      if (parsed.data.role && parsed.data.role !== "STAFF") {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
       if (parsed.data.status === "BLOCKED") {
@@ -51,17 +54,42 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (parsed.data.branchId) data.branchId = parsed.data.branchId;
     if (parsed.data.password) data.passwordHash = await hash(parsed.data.password, 12);
 
-    const updated = await prisma.user.update({
-      where: { id: params.id },
-      data,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        status: true,
-        branchId: true,
-      },
+    const nextRole = parsed.data.role ?? target.role;
+    const nextStatus = parsed.data.status ?? target.status;
+    const nextBranchId = parsed.data.branchId ?? target.branchId;
+    if (nextStatus === "ACTIVE" && nextRole !== "ADMIN" && !nextBranchId) {
+      return NextResponse.json({ ok: false, error: "Branch required" }, { status: 400 });
+    }
+
+    const shouldSyncBranchAccess =
+      parsed.data.role !== undefined ||
+      parsed.data.status !== undefined ||
+      parsed.data.branchId !== undefined;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: params.id },
+        data,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          status: true,
+          branchId: true,
+        },
+      });
+
+      if (shouldSyncBranchAccess) {
+        await tx.userBranchAccess.deleteMany({ where: { userId: params.id } });
+        if (user.status === "ACTIVE" && user.role !== "ADMIN" && user.branchId) {
+          await tx.userBranchAccess.create({
+            data: { userId: params.id, branchId: user.branchId },
+          });
+        }
+      }
+
+      return user;
     });
     return NextResponse.json({ ok: true, user: updated });
   } catch (error) {

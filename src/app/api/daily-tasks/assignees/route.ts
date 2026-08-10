@@ -23,7 +23,13 @@ export async function GET() {
     const assignees = await prisma.user.findMany({
       where: {
         status: "ACTIVE",
-        OR: [{ branchId }, { branchAccess: { some: { branchId } } }],
+        OR: [
+          { branchId },
+          {
+            requestedBranchCode: null,
+            branchAccess: { some: { branchId } },
+          },
+        ],
       },
       orderBy: [{ name: "asc" }],
       select: {
