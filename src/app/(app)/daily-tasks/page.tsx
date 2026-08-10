@@ -73,6 +73,7 @@ function TaskList({
   emptyTitle,
   emptyDesc,
   currentUserId,
+  canManage,
   onToggle,
   onDelete,
 }: {
@@ -82,6 +83,7 @@ function TaskList({
   emptyTitle: string;
   emptyDesc?: string;
   currentUserId: string | null;
+  canManage: boolean;
   onToggle: (task: Task) => void;
   onDelete: (task: Task) => void;
 }) {
@@ -111,6 +113,7 @@ function TaskList({
           task.assigneeId &&
           task.author?.id &&
           task.author.id !== task.assigneeId;
+        const canDelete = canManage || task.authorId === currentUserId;
         return (
           <li
             key={task.id}
@@ -150,14 +153,16 @@ function TaskList({
               )}
             </div>
 
-            <button
-              type="button"
-              aria-label={he.dailyTasks.deleteTask}
-              onClick={() => onDelete(task)}
-              className="invisible h-6 w-6 shrink-0 rounded-md text-muted-foreground/50 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:visible"
-            >
-              <Trash2 className="mx-auto h-3.5 w-3.5" />
-            </button>
+            {canDelete && (
+              <button
+                type="button"
+                aria-label={he.dailyTasks.deleteTask}
+                onClick={() => onDelete(task)}
+                className="invisible h-6 w-6 shrink-0 rounded-md text-muted-foreground/50 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:visible"
+              >
+                <Trash2 className="mx-auto h-3.5 w-3.5" />
+              </button>
+            )}
           </li>
         );
       })}
@@ -178,6 +183,8 @@ function TaskSection({
   setNewTitle,
   onAdd,
   adding,
+  currentUserId,
+  canManage,
   onToggle,
   onDelete,
 }: {
@@ -193,6 +200,8 @@ function TaskSection({
   setNewTitle: (v: string) => void;
   onAdd: (e: React.FormEvent) => void;
   adding: boolean;
+  currentUserId: string | null;
+  canManage: boolean;
   onToggle: (task: Task) => void;
   onDelete: (task: Task) => void;
 }) {
@@ -255,7 +264,8 @@ function TaskSection({
           isFuture={isFuture}
           emptyTitle={emptyTitle}
           emptyDesc={emptyDesc}
-          currentUserId={null}
+          currentUserId={currentUserId}
+          canManage={canManage}
           onToggle={onToggle}
           onDelete={onDelete}
         />
@@ -542,6 +552,8 @@ export default function DailyTasksPage() {
           setNewTitle={setNewGeneralTitle}
           onAdd={handleAddGeneral}
           adding={addingGeneral}
+          currentUserId={currentUserId}
+          canManage={canManage}
           onToggle={handleToggle}
           onDelete={handleDelete}
         />
@@ -569,6 +581,8 @@ export default function DailyTasksPage() {
           setNewTitle={setNewPersonalTitle}
           onAdd={handleAddPersonal}
           adding={addingPersonal}
+          currentUserId={currentUserId}
+          canManage={canManage}
           onToggle={handleToggle}
           onDelete={handleDelete}
         />

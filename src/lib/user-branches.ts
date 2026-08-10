@@ -34,6 +34,36 @@ export async function syncUserBranchAccess(userId: string, branchIds: string[]):
   ]);
 }
 
+export function getAuthorizedActivationBranchIds(
+  actor: { role: string; branchId: string | null },
+  targetBranchId: string | null,
+  requestedBranchIds: string[]
+): string[] {
+  if (actor.role !== "ADMIN") {
+    return actor.branchId ? [actor.branchId] : [];
+  }
+  return [
+    ...new Set(
+      [targetBranchId, ...requestedBranchIds].filter(
+        (branchId): branchId is string => Boolean(branchId)
+      )
+    ),
+  ];
+}
+
+export async function resolveRequestedBranchIds(
+  requestedBranchCode: string | null | undefined
+): Promise<string[]> {
+  const requestedCodes = parseRequestedBranchCodes(requestedBranchCode);
+  if (requestedCodes.length === 0) return [];
+
+  const result = await resolveBranchIdsFromCodes(requestedCodes);
+  if (!result.ok) {
+    throw new Error("REQUESTED_BRANCH_NOT_FOUND");
+  }
+  return result.branches.map((branch) => branch.id);
+}
+
 export async function userCanSwitchBranches(userId: string, role: string): Promise<boolean> {
   if (role === "ADMIN") return true;
   const accessible = await getUserAccessibleBranchIds(userId);

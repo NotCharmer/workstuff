@@ -3,6 +3,11 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { AdminUserPatchSchema } from "@/lib/validators";
 import { AuthError, requireRole } from "@/lib/auth";
+import {
+  getAuthorizedActivationBranchIds,
+  resolveRequestedBranchIds,
+  syncUserBranchAccess,
+} from "@/lib/user-branches";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -25,7 +30,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     const target = await prisma.user.findUnique({
       where: { id: params.id },
-      select: { id: true, role: true, branchId: true },
+      select: { id: true, role: true, branchId: true, requestedBranchCode: true },
     });
     if (!target) {
       return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
@@ -51,6 +56,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (parsed.data.branchId) data.branchId = parsed.data.branchId;
     if (parsed.data.password) data.passwordHash = await hash(parsed.data.password, 12);
 
+    if (parsed.data.status === "ACTIVE") {
+      const finalBranchId = parsed.data.branchId ?? target.branchId;
+      const requestedBranchIds =
+        actor.role === "ADMIN" ? await resolveRequestedBranchIds(target.requestedBranchCode) : [];
+      const activationBranchIds = getAuthorizedActivationBranchIds(
+        actor,
+        finalBranchId,
+        requestedBranchIds
+      );
+      await syncUserBranchAccess(target.id, activationBranchIds);
+    }
+
     const updated = await prisma.user.update({
       where: { id: params.id },
       data,
@@ -67,6 +84,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ ok: false, error: error.message }, { status: error.status });
+    }
+    if (error instanceof Error && error.message === "REQUESTED_BRANCH_NOT_FOUND") {
+      return NextResponse.json({ ok: false, error: "Requested branch not found" }, { status: 400 });
     }
     return NextResponse.json({ ok: false, error: "Failed to update user" }, { status: 500 });
   }
