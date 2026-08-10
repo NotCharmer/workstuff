@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { getAdminUserPatchForbiddenReason } from "@/lib/admin-user-policy";
 import { AdminUserPatchSchema } from "@/lib/validators";
 import { AuthError, requireRole } from "@/lib/auth";
 
@@ -30,19 +31,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (!target) {
       return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
     }
-    if (actor.role !== "ADMIN") {
-      if (!actor.branchId || target.branchId !== actor.branchId) {
-        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
-      }
-      if (target.role === "ADMIN" || parsed.data.role === "ADMIN") {
-        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
-      }
-      if (parsed.data.status === "BLOCKED") {
-        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
-      }
-      if (parsed.data.branchId && parsed.data.branchId !== actor.branchId) {
-        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
-      }
+    const forbiddenReason = getAdminUserPatchForbiddenReason(actor, target, parsed.data);
+    if (forbiddenReason) {
+      return NextResponse.json({ ok: false, error: forbiddenReason }, { status: 403 });
     }
 
     const data: { role?: string; status?: string; branchId?: string; passwordHash?: string } = {};
@@ -51,18 +42,32 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (parsed.data.branchId) data.branchId = parsed.data.branchId;
     if (parsed.data.password) data.passwordHash = await hash(parsed.data.password, 12);
 
-    const updated = await prisma.user.update({
-      where: { id: params.id },
-      data,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        status: true,
-        branchId: true,
-      },
-    });
+    const userSelect = {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      status: true,
+      branchId: true,
+    } as const;
+    const updated = parsed.data.branchId
+      ? await prisma.$transaction(async (tx) => {
+          const user = await tx.user.update({
+            where: { id: params.id },
+            data,
+            select: userSelect,
+          });
+          await tx.userBranchAccess.deleteMany({ where: { userId: params.id } });
+          await tx.userBranchAccess.create({
+            data: { userId: params.id, branchId: parsed.data.branchId! },
+          });
+          return user;
+        })
+      : await prisma.user.update({
+          where: { id: params.id },
+          data,
+          select: userSelect,
+        });
     return NextResponse.json({ ok: true, user: updated });
   } catch (error) {
     if (error instanceof AuthError) {
