@@ -10,13 +10,42 @@ export function formatRequestedBranchCodes(codes: string[]): string {
   return [...new Set(codes.map((c) => c.trim()).filter(Boolean))].join(",");
 }
 
+export function resolveAccessibleBranchIds({
+  branchId,
+  requestedBranchCode,
+  accessBranchIds,
+}: {
+  branchId: string | null;
+  requestedBranchCode: string | null;
+  accessBranchIds: string[];
+}): string[] {
+  // Requested branches are informational until an administrator explicitly
+  // approves multi-branch access. Legacy registrations wrote every request to
+  // UserBranchAccess, so clamp those rows to the user's approved primary branch.
+  if (requestedBranchCode) {
+    return branchId ? [branchId] : [];
+  }
+  return [...new Set(accessBranchIds.filter(Boolean))];
+}
+
 export async function getUserAccessibleBranchIds(userId: string): Promise<string[]> {
-  const rows = await prisma.userBranchAccess.findMany({
-    where: { userId },
-    select: { branchId: true },
-    orderBy: { createdAt: "asc" },
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      branchId: true,
+      requestedBranchCode: true,
+      branchAccess: {
+        select: { branchId: true },
+        orderBy: { createdAt: "asc" },
+      },
+    },
   });
-  return rows.map((row) => row.branchId);
+  if (!user) return [];
+  return resolveAccessibleBranchIds({
+    branchId: user.branchId,
+    requestedBranchCode: user.requestedBranchCode,
+    accessBranchIds: user.branchAccess.map((row) => row.branchId),
+  });
 }
 
 export async function syncUserBranchAccess(userId: string, branchIds: string[]): Promise<void> {
