@@ -34,6 +34,24 @@ export async function syncUserBranchAccess(userId: string, branchIds: string[]):
   ]);
 }
 
+type ApprovedBranchAccessUser = {
+  id: string;
+  role: string;
+  status: string;
+  branchId: string | null;
+};
+
+export function approvedBranchIdsForUser(user: ApprovedBranchAccessUser): string[] {
+  if (user.role === "ADMIN" || user.status !== "ACTIVE" || !user.branchId) {
+    return [];
+  }
+  return [user.branchId];
+}
+
+export async function syncApprovedUserBranchAccess(user: ApprovedBranchAccessUser): Promise<void> {
+  await syncUserBranchAccess(user.id, approvedBranchIdsForUser(user));
+}
+
 export async function userCanSwitchBranches(userId: string, role: string): Promise<boolean> {
   if (role === "ADMIN") return true;
   const accessible = await getUserAccessibleBranchIds(userId);
