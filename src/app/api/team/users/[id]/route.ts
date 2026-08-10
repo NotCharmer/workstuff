@@ -38,10 +38,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
 
     if (actor.role === "BRANCH_MANAGER") {
-      if (target.role === "ADMIN" || parsed.data.role === "ADMIN") {
+      if (target.role !== "STAFF") {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
-      if (parsed.data.role === "BRANCH_MANAGER") {
+      if (parsed.data.role && parsed.data.role !== "STAFF") {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
       if (parsed.data.status === "BLOCKED") {
@@ -54,10 +54,26 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (parsed.data.status) data.status = parsed.data.status;
     if (parsed.data.password) data.passwordHash = await hash(parsed.data.password, 12);
 
-    const user = await prisma.user.update({
-      where: { id: params.id },
-      data,
-      select: { id: true, email: true, name: true, role: true, status: true },
+    const shouldSyncBranchAccess =
+      parsed.data.role !== undefined || parsed.data.status !== undefined;
+
+    const user = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: params.id },
+        data,
+        select: { id: true, email: true, name: true, role: true, status: true },
+      });
+
+      if (shouldSyncBranchAccess) {
+        await tx.userBranchAccess.deleteMany({ where: { userId: updated.id } });
+        if (updated.status === "ACTIVE" && updated.role !== "ADMIN" && target.branchId) {
+          await tx.userBranchAccess.create({
+            data: { userId: updated.id, branchId: target.branchId },
+          });
+        }
+      }
+
+      return updated;
     });
 
     return NextResponse.json({ ok: true, user });
