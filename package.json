@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
+    "test": "node --import tsx --test src/lib/csv/parse-grade-csv.test.ts",
     "lint": "next lint",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
