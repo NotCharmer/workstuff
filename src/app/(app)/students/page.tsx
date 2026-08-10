@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Search, Users, UploadCloud } from "lucide-react";
+import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { Input } from "@/components/ui/input";
@@ -37,7 +38,7 @@ const IMPORTANT_SUBJECT_TOKENS = [
   "math",
 ] as const;
 
-const REQUIRED_SUBJECT_FILTER = {
+const REQUIRED_SUBJECT_FILTER: Prisma.GradeWhereInput = {
   OR: [
     { subject: { name: { contains: "פייתון" } } },
     { subject: { name: { contains: "מיתוג" } } },

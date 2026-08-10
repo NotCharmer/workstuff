@@ -4,6 +4,8 @@ import { userCanSwitchBranches } from "@/lib/user-branches";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/topbar";
 
+export const dynamic = "force-dynamic";
+
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUserOrRedirect();
   const view = await getViewBranchContext(user);

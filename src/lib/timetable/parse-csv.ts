@@ -161,6 +161,10 @@ export function parseTimetableCsv(
     };
   }
 
+  if (!classCol || !dayCol || !startCol || !endCol || !subjectCol) {
+    return { ok: false, error: he.timetable.csvHeaders };
+  }
+
   for (let i = 0; i < parsed.data.length; i++) {
     const r = parsed.data[i];
     const className = (r[classCol!] ?? "").trim();
