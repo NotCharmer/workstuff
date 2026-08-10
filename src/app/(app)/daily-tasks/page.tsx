@@ -41,7 +41,7 @@ type Assignee = { id: string; name: string; email: string; role: string };
 type ManagerTab = "general" | "personal";
 
 function toDateStr(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function addDays(dateStr: string, n: number) {
