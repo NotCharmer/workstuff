@@ -295,6 +295,12 @@ export const he = {
     teacher: "מורה",
     room: "חדר",
     lowConfidence: (n: number) => `${n} שורות בביטחון נמוך`,
+    parseWarnings: (n: number) => `${n} אזהרות בחילוץ — שורות לא תקינות דולגו`,
+    replaceWarning: (classes: string) =>
+      `השמירה תחליף לחלוטין את מערכת השעות הקיימת עבור: ${classes}`,
+    acknowledgeReplace:
+      "אני מבין/ה ששורות דולגו או שחולצו בביטחון נמוך, ושמירת הייבוא תחליף את כל מערכת השעות של הכיתות שבקובץ",
+    acknowledgeRequired: "יש לאשר את החלפת מערכת השעות לפני השמירה",
     csvHeaders:
       "ב-CSV נדרשות עמודות: className/dayOfWeek/startTime/endTime/subject (אפשר גם כיתה/יום/התחלה/סיום/מקצוע).",
     rowInvalid: "שורת מערכת שעות לא תקינה",

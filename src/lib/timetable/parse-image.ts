@@ -108,17 +108,33 @@ export async function parseTimetableImage(file: {
       };
     }
 
-    const rows = safe.data.rows.map((r) => ({
-      id: randomUUID(),
-      className: r.className.trim(),
-      dayOfWeek: r.dayOfWeek.trim(),
-      startTime: r.startTime.trim(),
-      endTime: r.endTime.trim(),
-      subject: r.subject.trim(),
-      teacher: r.teacher?.trim() || null,
-      room: r.room?.trim() || null,
-      confidence: r.confidence ?? 0.85,
-    }));
+    const warnings = [...(safe.data.warnings ?? [])];
+    const rows = [];
+    for (let i = 0; i < safe.data.rows.length; i++) {
+      const r = safe.data.rows[i];
+      const className = r.className.trim();
+      const dayOfWeek = r.dayOfWeek.trim();
+      const startTime = r.startTime.trim();
+      const endTime = r.endTime.trim();
+      const subject = r.subject.trim();
+      // Drop incomplete OCR rows before review/confirm. Confirm replaces each
+      // class wholesale, so keeping blanks would silently truncate schedules.
+      if (!className || !dayOfWeek || !startTime || !endTime || !subject) {
+        warnings.push(`שורה ${i + 1}: שיעור חלקי מחילוץ התמונה דולג`);
+        continue;
+      }
+      rows.push({
+        id: randomUUID(),
+        className,
+        dayOfWeek,
+        startTime,
+        endTime,
+        subject,
+        teacher: r.teacher?.trim() || null,
+        room: r.room?.trim() || null,
+        confidence: r.confidence ?? 0.85,
+      });
+    }
     const avgConfidence = rows.length
       ? rows.reduce((s, r) => s + (r.confidence ?? 0.85), 0) / rows.length
       : 0;
@@ -126,7 +142,7 @@ export async function parseTimetableImage(file: {
     return {
       rows,
       avgConfidence: Number(avgConfidence.toFixed(2)),
-      warnings: safe.data.warnings ?? [],
+      warnings,
       rawText: content.slice(0, 5000),
     };
   } catch (e) {
