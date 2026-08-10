@@ -11,12 +11,29 @@ export function formatRequestedBranchCodes(codes: string[]): string {
 }
 
 export async function getUserAccessibleBranchIds(userId: string): Promise<string[]> {
-  const rows = await prisma.userBranchAccess.findMany({
-    where: { userId },
-    select: { branchId: true },
-    orderBy: { createdAt: "asc" },
-  });
-  return rows.map((row) => row.branchId);
+  const [user, rows] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { branchId: true, requestedBranchCode: true },
+    }),
+    prisma.userBranchAccess.findMany({
+      where: { userId },
+      select: { branchId: true },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
+  const branchIds = rows.map((row) => row.branchId);
+
+  if (user?.requestedBranchCode) {
+    // Self-registration records requests; only rows matching the approved primary branch are trusted.
+    const approvedPrimaryBranchIds = user.branchId ? [user.branchId] : [];
+    const matchesApprovedPrimary =
+      branchIds.length === approvedPrimaryBranchIds.length &&
+      branchIds.every((branchId) => branchId === approvedPrimaryBranchIds[0]);
+    return matchesApprovedPrimary ? branchIds : approvedPrimaryBranchIds;
+  }
+
+  return branchIds;
 }
 
 export async function syncUserBranchAccess(userId: string, branchIds: string[]): Promise<void> {
