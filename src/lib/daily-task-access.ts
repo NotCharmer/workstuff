@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import type { CurrentUser } from "@/lib/auth";
 import type { UserRole } from "@/lib/enums";
 import { prisma } from "@/lib/db";
+import { approvedBranchMembershipWhere } from "@/lib/user-branches";
 
 export type DailyTaskScope = "all" | "general" | "personal";
 
@@ -36,7 +37,7 @@ export async function assertActiveUserInBranch(
     where: {
       id: userId,
       status: "ACTIVE",
-      OR: [{ branchId }, { branchAccess: { some: { branchId } } }],
+      ...approvedBranchMembershipWhere(branchId),
     },
     select: { id: true, name: true, role: true },
   });
