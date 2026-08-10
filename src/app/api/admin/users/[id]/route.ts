@@ -3,6 +3,20 @@ import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { AdminUserPatchSchema } from "@/lib/validators";
 import { AuthError, requireRole } from "@/lib/auth";
+import { chooseApprovedBranchIdsForActivation } from "@/lib/user-branch-approval";
+import {
+  parseRequestedBranchCodes,
+  resolveBranchIdsFromCodes,
+  syncUserBranchAccess,
+} from "@/lib/user-branches";
+
+async function resolveRequestedBranchIds(value: string | null | undefined): Promise<string[]> {
+  const requestedCodes = parseRequestedBranchCodes(value);
+  if (requestedCodes.length === 0) return [];
+
+  const resolved = await resolveBranchIdsFromCodes(requestedCodes);
+  return resolved.ok ? resolved.branches.map((branch) => branch.id) : [];
+}
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -25,7 +39,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     const target = await prisma.user.findUnique({
       where: { id: params.id },
-      select: { id: true, role: true, branchId: true },
+      select: { id: true, role: true, branchId: true, requestedBranchCode: true },
     });
     if (!target) {
       return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
@@ -50,6 +64,22 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (parsed.data.status) data.status = parsed.data.status;
     if (parsed.data.branchId) data.branchId = parsed.data.branchId;
     if (parsed.data.password) data.passwordHash = await hash(parsed.data.password, 12);
+
+    if (parsed.data.status === "ACTIVE") {
+      const requestedBranchIds =
+        actor.role === "ADMIN" ? await resolveRequestedBranchIds(target.requestedBranchCode) : [];
+      const approvedBranchIds = chooseApprovedBranchIdsForActivation({
+        actorRole: actor.role,
+        actorBranchId: actor.branchId,
+        targetBranchId: target.branchId,
+        branchIdOverride: parsed.data.branchId,
+        requestedBranchIds,
+      });
+      if (approvedBranchIds.length === 0) {
+        return NextResponse.json({ ok: false, error: "Branch required" }, { status: 400 });
+      }
+      await syncUserBranchAccess(params.id, approvedBranchIds);
+    }
 
     const updated = await prisma.user.update({
       where: { id: params.id },
