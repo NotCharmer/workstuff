@@ -10,13 +10,44 @@ export function formatRequestedBranchCodes(codes: string[]): string {
   return [...new Set(codes.map((c) => c.trim()).filter(Boolean))].join(",");
 }
 
+export function approvedBranchAccessIds(branchId: string | null | undefined): string[] {
+  return branchId ? [branchId] : [];
+}
+
+export function trustedBranchAccessIdsForUser(
+  user: { branchId: string | null; requestedBranchCode: string | null } | null,
+  branchIds: string[]
+): string[] {
+  const uniqueBranchIds = [...new Set(branchIds.filter(Boolean))];
+  if (!user?.requestedBranchCode) {
+    return uniqueBranchIds;
+  }
+
+  // Self-registration records requested branches, not approved branches.
+  // Until a reviewer syncs access rows, trust only the approved primary branch.
+  const approvedBranchIds = approvedBranchAccessIds(user.branchId);
+  const matchesApprovedBranch =
+    uniqueBranchIds.length === approvedBranchIds.length &&
+    uniqueBranchIds.every((branchId) => branchId === approvedBranchIds[0]);
+  return matchesApprovedBranch ? uniqueBranchIds : approvedBranchIds;
+}
+
 export async function getUserAccessibleBranchIds(userId: string): Promise<string[]> {
-  const rows = await prisma.userBranchAccess.findMany({
-    where: { userId },
-    select: { branchId: true },
-    orderBy: { createdAt: "asc" },
-  });
-  return rows.map((row) => row.branchId);
+  const [user, rows] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { branchId: true, requestedBranchCode: true },
+    }),
+    prisma.userBranchAccess.findMany({
+      where: { userId },
+      select: { branchId: true },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
+  return trustedBranchAccessIdsForUser(
+    user,
+    rows.map((row) => row.branchId)
+  );
 }
 
 export async function syncUserBranchAccess(userId: string, branchIds: string[]): Promise<void> {
@@ -32,6 +63,13 @@ export async function syncUserBranchAccess(userId: string, branchIds: string[]):
         ]
       : []),
   ]);
+}
+
+export async function syncApprovedBranchAccess(
+  userId: string,
+  branchId: string | null | undefined
+): Promise<void> {
+  await syncUserBranchAccess(userId, approvedBranchAccessIds(branchId));
 }
 
 export async function userCanSwitchBranches(userId: string, role: string): Promise<boolean> {
