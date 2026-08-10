@@ -34,7 +34,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if (!actor.branchId || target.branchId !== actor.branchId) {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
-      if (target.role === "ADMIN" || parsed.data.role === "ADMIN") {
+      if (target.role !== "STAFF") {
+        return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+      }
+      if (parsed.data.role && parsed.data.role !== "STAFF") {
         return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
       }
       if (parsed.data.status === "BLOCKED") {
@@ -51,7 +54,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (parsed.data.branchId) data.branchId = parsed.data.branchId;
     if (parsed.data.password) data.passwordHash = await hash(parsed.data.password, 12);
 
-    const updated = await prisma.user.update({
+    const updateUser = prisma.user.update({
       where: { id: params.id },
       data,
       select: {
@@ -63,6 +66,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         branchId: true,
       },
     });
+    const updated = parsed.data.branchId
+      ? (
+          await prisma.$transaction([
+            updateUser,
+            prisma.userBranchAccess.deleteMany({ where: { userId: params.id } }),
+            prisma.userBranchAccess.createMany({
+              data: [{ userId: params.id, branchId: parsed.data.branchId }],
+              skipDuplicates: true,
+            }),
+          ])
+        )[0]
+      : await updateUser;
     return NextResponse.json({ ok: true, user: updated });
   } catch (error) {
     if (error instanceof AuthError) {
