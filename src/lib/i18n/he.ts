@@ -287,6 +287,8 @@ export const he = {
     updated: "מערכת השעות עודכנה",
     unsavedChanges: "יש שינויים שלא נשמרו",
     invalidRows: (n: number) => `${n} שורות דורשות תיקון`,
+    dayAlreadyUsed: "יום זה כבר קיים בטבלה — בחרו יום אחר כדי לא למחוק שיעורים",
+    slotAlreadyUsed: "משבצת השעה הזו כבר קיימת — בחרו שעה אחרת כדי לא למחוק שיעורים",
     className: "כיתה",
     day: "יום",
     start: "התחלה",
