@@ -19,6 +19,11 @@ import {
 import { he } from "@/lib/i18n/he";
 import { cn } from "@/lib/utils";
 import { DAY_CANONICAL_ORDER, canonicalDay, dayOrderOf } from "@/lib/timetable/days";
+import {
+  canRemapDayColumn,
+  canRemapTimeSlot,
+  occupiedDaysExcept,
+} from "@/lib/timetable/edit-guards";
 
 type Entry = {
   id: string;
@@ -161,6 +166,10 @@ export function EditableTimetableGrid({
   }
 
   function updateDayColumn(oldDay: string, newDay: string) {
+    if (!canRemapDayColumn(rows, oldDay, newDay)) {
+      toast.error(he.timetable.dayAlreadyUsed);
+      return;
+    }
     setRows((prev) =>
       prev.map((r) => (r.dayOfWeek === oldDay ? { ...r, dayOfWeek: newDay } : r))
     );
@@ -171,6 +180,12 @@ export function EditableTimetableGrid({
     oldEndTime: string,
     patch: { startTime?: string; endTime?: string }
   ) {
+    const newStartTime = patch.startTime ?? oldStartTime;
+    const newEndTime = patch.endTime ?? oldEndTime;
+    if (!canRemapTimeSlot(rows, oldStartTime, oldEndTime, newStartTime, newEndTime)) {
+      toast.error(he.timetable.slotAlreadyUsed);
+      return;
+    }
     setRows((prev) =>
       prev.map((r) =>
         r.startTime === oldStartTime && r.endTime === oldEndTime ? { ...r, ...patch } : r
@@ -363,7 +378,10 @@ export function EditableTimetableGrid({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {DAY_OPTIONS.map((dayOption) => (
+                      {DAY_OPTIONS.filter((dayOption) => {
+                        const occupied = occupiedDaysExcept(rows, day);
+                        return dayOption === day || !occupied.has(dayOption);
+                      }).map((dayOption) => (
                         <SelectItem key={dayOption} value={dayOption}>
                           {dayOption}
                         </SelectItem>
