@@ -285,6 +285,8 @@ export const he = {
     duplicateLesson: "שכפול שיעור",
     deleteLesson: "מחיקת שיעור",
     updated: "מערכת השעות עודכנה",
+    conflictStale: (className: string) =>
+      `מערכת השעות של כיתה ${className} עודכנה במקביל. רעננו את העמוד ושמרו שוב כדי לא למחוק שינויים של אחרים.`,
     unsavedChanges: "יש שינויים שלא נשמרו",
     invalidRows: (n: number) => `${n} שורות דורשות תיקון`,
     className: "כיתה",

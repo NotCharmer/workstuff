@@ -60,11 +60,18 @@ export default async function TimetablePage() {
 
           {classes.map((className) => {
             const rows = grouped.get(className) ?? [];
+            const maxUpdatedMs = rows.reduce(
+              (max, r) => Math.max(max, r.updatedAt.getTime()),
+              -1
+            );
+            const initialRevision =
+              maxUpdatedMs >= 0 ? new Date(maxUpdatedMs).toISOString() : null;
 
             return (
               <TabsContent key={className} value={className}>
                 <EditableTimetableGrid
                   className={className}
+                  initialRevision={initialRevision}
                   initialRows={rows.map((r) => ({
                     id: r.id,
                     className: r.className,
