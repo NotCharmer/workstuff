@@ -125,8 +125,20 @@ export const TimetableRowSchema = z.object({
   confidence: z.number().min(0).max(1).optional(),
 });
 
+export const TimetableClassRevisionSchema = z.object({
+  className: z.string().min(1),
+  /** ISO timestamp of the newest row the editor loaded for this class. */
+  maxUpdatedAt: z.string().min(1),
+});
+
 export const TimetablePayloadSchema = z.object({
   rows: z.array(TimetableRowSchema).min(1),
+  /**
+   * Optional optimistic-concurrency baselines from the editable grid.
+   * When present, confirm rejects the save if any listed class changed on the server.
+   * Import/uploader saves omit this and keep full replace semantics.
+   */
+  expectedRevisions: z.array(TimetableClassRevisionSchema).optional(),
 });
 
 export const AdminBranchCreateSchema = z.object({

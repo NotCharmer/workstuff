@@ -93,9 +93,12 @@ function isValidTime(value: string): boolean {
 export function EditableTimetableGrid({
   className,
   initialRows,
+  initialRevision = null,
 }: {
   className: string;
   initialRows: Entry[];
+  /** ISO max(updatedAt) for this class when the page loaded; used to reject stale saves. */
+  initialRevision?: string | null;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -103,6 +106,7 @@ export function EditableTimetableGrid({
   const normalizedInitial = useMemo(() => initialRows.map(normalizeEntry), [initialRows]);
   const [rows, setRows] = useState<Entry[]>(normalizedInitial);
   const [baselineRows, setBaselineRows] = useState<Entry[]>(normalizedInitial);
+  const [expectedRevision, setExpectedRevision] = useState<string | null>(initialRevision);
   const currentSnapshot = useMemo(() => serializeRows(rows), [rows]);
   const baselineSnapshot = useMemo(() => serializeRows(baselineRows), [baselineRows]);
   const hasUnsavedChanges = currentSnapshot !== baselineSnapshot;
@@ -236,28 +240,61 @@ export function EditableTimetableGrid({
     }
     setSaving(true);
     try {
+      const payload: {
+        rows: Array<{
+          id: string;
+          className: string;
+          dayOfWeek: string;
+          startTime: string;
+          endTime: string;
+          subject: string;
+          teacher: string | null;
+          room: string | null;
+          confidence: number;
+        }>;
+        expectedRevisions?: Array<{ className: string; maxUpdatedAt: string }>;
+      } = {
+        rows: rows.map((r) => ({
+          id: r.id,
+          className: r.className,
+          dayOfWeek: r.dayOfWeek,
+          startTime: r.startTime,
+          endTime: r.endTime,
+          subject: r.subject,
+          teacher: r.teacher || null,
+          room: r.room || null,
+          confidence: 1,
+        })),
+      };
+      if (expectedRevision) {
+        payload.expectedRevisions = [
+          { className, maxUpdatedAt: expectedRevision },
+        ];
+      }
       const res = await fetch("/api/timetable/confirm", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          rows: rows.map((r) => ({
-            id: r.id,
-            className: r.className,
-            dayOfWeek: r.dayOfWeek,
-            startTime: r.startTime,
-            endTime: r.endTime,
-            subject: r.subject,
-            teacher: r.teacher || null,
-            room: r.room || null,
-            confidence: 1,
-          })),
-        }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.ok) {
         toast.error(json?.error ?? he.api.saveFailed);
+        if (res.status === 409) {
+          // Drop local dirty state so the post-refresh prop sync can load the newer server grid.
+          setBaselineRows(rows);
+          setEditing(false);
+          router.refresh();
+        }
         return;
       }
+      const nextRevision =
+        Array.isArray(json.classRevisions)
+          ? (json.classRevisions.find(
+              (r: { className?: string; maxUpdatedAt?: string }) =>
+                r?.className === className
+            )?.maxUpdatedAt as string | undefined)
+          : undefined;
+      if (nextRevision) setExpectedRevision(nextRevision);
       setBaselineRows(rows);
       toast.success(he.timetable.updated);
       setEditing(false);
@@ -265,7 +302,7 @@ export function EditableTimetableGrid({
     } finally {
       setSaving(false);
     }
-  }, [hasUnsavedChanges, invalidRows, rows, router]);
+  }, [hasUnsavedChanges, invalidRows, rows, router, expectedRevision, className]);
 
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -276,6 +313,14 @@ export function EditableTimetableGrid({
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [hasUnsavedChanges]);
+
+  // After a conflict refresh (or external prop update) with no local edits, adopt the server snapshot.
+  useEffect(() => {
+    if (editing || hasUnsavedChanges) return;
+    setRows(normalizedInitial);
+    setBaselineRows(normalizedInitial);
+    setExpectedRevision(initialRevision);
+  }, [normalizedInitial, initialRevision, editing, hasUnsavedChanges]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
