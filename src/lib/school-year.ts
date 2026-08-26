@@ -27,9 +27,17 @@ export function nextSchoolYear(year: string): string {
   return `${start + 1}-${start + 2}`;
 }
 
-/** Normalize class labels like "יא 3" → "יא3". */
+/**
+ * Normalize class labels like "יא 3", "י' 3", "י״א-2", `י"א-3` → "יא3" / "י3" / "יא2".
+ * Israeli school notation often marks layers with geresh/gershayim and separates
+ * the group number with a hyphen, maqaf, or dot. The downloadable grade template
+ * uses `י"א-3`; without stripping those marks, rollover cannot promote or graduate.
+ */
 export function normalizeClassName(className: string): string {
-  return className.replace(/\s+/g, "").trim();
+  return className
+    .replace(/[\s'"`׳״‘’“”ʼ]+/g, "")
+    .replace(/[-‐-―−.\u05BE/]+/g, "")
+    .trim();
 }
 
 /**
