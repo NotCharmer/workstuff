@@ -50,11 +50,6 @@ export function normalizeClassName(className: string): string {
   return s;
 }
 
-function formatLayerAndSuffix(layer: string, suffix: string): string {
-  if (!suffix) return layer;
-  return `${layer} ${suffix}`;
-}
-
 /**
  * Parse Hebrew high-school class: layer (י/יא/יב) + optional numeric suffix.
  * e.g. יא3, י 3, י'12, יב2
@@ -81,7 +76,8 @@ export type PromoteResult =
   | { kind: "unchanged"; next: string | null };
 
 /**
- * י3 → יא3 | י 3 → יא 3 | יא3 → יב3 | יב2 → graduate
+ * Compact labels stay compact so they keep matching CSV/timetable rows:
+ * י3 → יא3 | י 3 → יא3 | יא3 → יב3 | יב2 → graduate
  */
 export function promoteClassName(className: string | null | undefined): PromoteResult {
   if (!className?.trim()) {
@@ -95,10 +91,7 @@ export function promoteClassName(className: string | null | undefined): PromoteR
   if (!nextLayer) {
     return { kind: "graduated", next: className };
   }
-  return {
-    kind: "promoted",
-    next: formatLayerAndSuffix(nextLayer, parsed.suffix),
-  };
+  return { kind: "promoted", next: `${nextLayer}${parsed.suffix}` };
 }
 
 export async function getOrCreateAppConfig(): Promise<{ currentSchoolYear: string }> {
@@ -117,24 +110,26 @@ let tenthGradeRepair: Promise<void> | null = null;
 
 /**
  * Students still in 10th-grade classes (י) who have last-year grades were
- * missed when the year rolled — promote them to יא once.
+ * missed when the year rolled — promote those student rows to יא once.
+ *
+ * Only student.className is updated. Timetable/class-visit rows must not be
+ * renamed by class label: the same string is reused across branches and by
+ * the new 10th-grade cohort, and visit names are historical.
  */
 export async function repairMissedTenthGradePromotions(
   currentYear: string
 ): Promise<number> {
+  const lastYear = previousSchoolYear(currentYear);
   const students = await prisma.student.findMany({
     where: {
       status: "ACTIVE",
       grades: {
-        some: {
-          NOT: { schoolYear: currentYear },
-        },
+        some: { schoolYear: lastYear },
       },
     },
     select: { id: true, className: true },
   });
 
-  const classRename = new Map<string, string>();
   let count = 0;
 
   for (const student of students) {
@@ -148,19 +143,7 @@ export async function repairMissedTenthGradePromotions(
       where: { id: student.id },
       data: { className: result.next },
     });
-    if (student.className) classRename.set(student.className, result.next);
     count++;
-  }
-
-  for (const [from, to] of classRename) {
-    await prisma.timetableEntry.updateMany({
-      where: { className: from },
-      data: { className: to },
-    });
-    await prisma.classVisit.updateMany({
-      where: { className: from },
-      data: { className: to },
-    });
   }
 
   return count;
