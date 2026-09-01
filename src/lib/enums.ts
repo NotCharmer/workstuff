@@ -36,3 +36,9 @@ export type StudentGender = (typeof STUDENT_GENDERS)[number];
 
 export const STUDENT_STATUSES = ["ACTIVE", "GRADUATED"] as const;
 export type StudentStatus = (typeof STUDENT_STATUSES)[number];
+
+export const REQUEST_KINDS = ["TUTORING", "EQUIPMENT"] as const;
+export type RequestKind = (typeof REQUEST_KINDS)[number];
+
+export const REQUEST_STATUSES = ["OPEN", "DONE"] as const;
+export type RequestStatus = (typeof REQUEST_STATUSES)[number];

@@ -31,6 +31,7 @@ model User {
   uploads    UploadSession[]
   authoredDailyTasks DailyTask[] @relation("DailyTaskAuthor")
   assignedDailyTasks DailyTask[] @relation("DailyTaskAssignee")
+  authoredRequests Request[] @relation("RequestAuthor")
 
   @@index([branchId])
 }
@@ -66,12 +67,39 @@ model Student {
   grades         Grade[]
   notes          Note[]
   privateLessons PrivateLesson[]
+  requests       Request[]
 
   @@unique([branchId, externalId])
   @@index([branchId])
   @@index([lastName, firstName])
   @@index([className])
   @@index([status])
+}
+
+model Request {
+  id         String   @id @default(cuid())
+  branchId   String?
+  authorId   String?
+  studentId  String?
+  // RequestKind: "TUTORING" | "EQUIPMENT"
+  kind       String
+  title      String
+  details    String?
+  quantity   Int?
+  // RequestStatus: "OPEN" | "DONE"
+  status     String   @default("OPEN")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  branch  Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  author  User?    @relation("RequestAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  student Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  @@index([branchId])
+  @@index([kind])
+  @@index([status])
+  @@index([createdAt])
+  @@index([studentId])
 }
 
 model PrivateLesson {
@@ -236,6 +264,7 @@ model Branch {
   dailyTasks DailyTask[]
   classVisits ClassVisit[]
   timetableEntries TimetableEntry[]
+  requests   Request[]
 }
 
 // Singleton app settings (id = "default").

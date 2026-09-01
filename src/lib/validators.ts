@@ -3,6 +3,7 @@ import { he } from "@/lib/i18n/he";
 import { STUDENT_GENDERS } from "@/lib/enums";
 import { USER_ROLES } from "@/lib/enums";
 import { USER_STATUSES } from "@/lib/enums";
+import { REQUEST_KINDS, REQUEST_STATUSES } from "@/lib/enums";
 
 export const GradeRowSchema = z.object({
   id: z.string(),
@@ -59,6 +60,39 @@ export type PatchDailyTaskInput = z.infer<typeof PatchDailyTaskSchema>;
 export const ToggleImportantSubjectSchema = z.object({
   isImportant: z.boolean(),
 });
+
+export const RequestSchema = z
+  .object({
+    kind: z.enum(REQUEST_KINDS),
+    title: z.string().trim().min(1, "נדרש פירוט").max(200),
+    details: z.string().trim().max(2000).optional().nullable(),
+    studentId: z.string().min(1).optional().nullable(),
+    quantity: z
+      .number({ invalid_type_error: "כמות חייבת להיות מספר" })
+      .int()
+      .min(1, "מינימום 1")
+      .max(999)
+      .optional()
+      .nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.kind === "TUTORING" && !data.studentId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "בחרו תלמיד לתגבור",
+        path: ["studentId"],
+      });
+    }
+  });
+export type RequestInput = z.infer<typeof RequestSchema>;
+
+export const PatchRequestSchema = z.object({
+  status: z.enum(REQUEST_STATUSES).optional(),
+  title: z.string().trim().min(1).max(200).optional(),
+  details: z.string().trim().max(2000).optional().nullable(),
+  quantity: z.number().int().min(1).max(999).optional().nullable(),
+});
+export type PatchRequestInput = z.infer<typeof PatchRequestSchema>;
 
 export const PrivateLessonSchema = z.object({
   studentId: z.string().min(1, "נדרש תלמיד"),

@@ -13,6 +13,7 @@ import {
   ListChecks,
   BookOpen,
   Sparkles,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
@@ -21,6 +22,7 @@ import { SchoolSwitcher } from "@/components/layout/school-switcher";
 const NAV = [
   { href: "/dashboard", label: he.nav.dashboard, icon: LayoutDashboard },
   { href: "/students", label: he.nav.students, icon: Users },
+  { href: "/requests", label: he.nav.requests, icon: ClipboardList },
   { href: "/upload", label: he.nav.upload, icon: UploadCloud },
   { href: "/timetable", label: he.nav.timetable, icon: CalendarDays },
   { href: "/daily-tasks", label: he.nav.dailyTasks, icon: ListChecks },
