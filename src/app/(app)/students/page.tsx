@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { StudentCard, type StudentCardData } from "@/components/students/student-card";
+import { SchoolYearSelect } from "@/components/students/school-year-select";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { he } from "@/lib/i18n/he";
@@ -19,6 +20,7 @@ type SearchParams = {
   class?: string;
   risk?: "low" | "high";
   avg?: "all" | "important";
+  year?: string;
 };
 
 const IMPORTANT_SUBJECT_TOKENS = [
@@ -68,6 +70,8 @@ async function fetchStudents(
   const className = params.class?.trim();
   const averageMode: "all" | "important" = params.avg === "all" ? "all" : "important";
 
+  // Display grades for the selected year only. Membership must NOT require
+  // current-year grades — after rollover the new year is empty by design.
   const yearGradeFilter = {
     OR: [{ schoolYear }, { schoolYear: null }],
   };
@@ -80,10 +84,9 @@ async function fetchStudents(
           status: "ACTIVE",
         },
         {
+          // Ever had a required subject (any year) → stays on the list after rollover
           grades: {
-            some: {
-              AND: [REQUIRED_SUBJECT_FILTER, yearGradeFilter],
-            },
+            some: REQUIRED_SUBJECT_FILTER,
           },
         },
         q
@@ -96,10 +99,7 @@ async function fetchStudents(
                 {
                   grades: {
                     some: {
-                      AND: [
-                        yearGradeFilter,
-                        { subject: { name: { contains: q } } },
-                      ],
+                      subject: { name: { contains: q } },
                     },
                   },
                 },
@@ -180,7 +180,27 @@ export default async function StudentsPage({
 }) {
   const user = await getCurrentUserOrRedirect();
   const branchId = await getViewBranchId(user);
-  const schoolYear = await getCurrentSchoolYear();
+  const currentSchoolYear = await getCurrentSchoolYear();
+
+  const yearsFromDb = await prisma.grade.findMany({
+    where: {
+      schoolYear: { not: null },
+      student: { branchId, status: "ACTIVE" },
+    },
+    select: { schoolYear: true },
+    distinct: ["schoolYear"],
+  });
+  const availableYears = yearsFromDb
+    .map((g) => g.schoolYear)
+    .filter((y): y is string => Boolean(y));
+  const requestedYear = searchParams.year?.trim();
+  const schoolYear =
+    requestedYear &&
+    (requestedYear === currentSchoolYear || availableYears.includes(requestedYear))
+      ? requestedYear
+      : currentSchoolYear;
+  const viewingPast = schoolYear !== currentSchoolYear;
+
   const students = await fetchStudents(searchParams, branchId, schoolYear);
 
   const classes = await prisma.student.findMany({
@@ -201,17 +221,29 @@ export default async function StudentsPage({
           <h1 className="font-display text-3xl font-semibold tracking-tight">
             {he.students.title}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{he.students.subtitle}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {viewingPast
+              ? he.schoolYear.viewingPast(schoolYear)
+              : he.students.subtitle}
+          </p>
         </div>
-        <Button asChild>
-          <Link href="/upload">
-            <UploadCloud className="h-4 w-4" />
-            {he.students.uploadGrades}
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <SchoolYearSelect
+            currentSchoolYear={currentSchoolYear}
+            years={availableYears}
+            selectedYear={schoolYear}
+          />
+          <Button asChild>
+            <Link href="/upload">
+              <UploadCloud className="h-4 w-4" />
+              {he.students.uploadGrades}
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <form className="grid grid-cols-1 gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-card md:grid-cols-[1fr_200px_220px_auto]">
+        {viewingPast ? <input type="hidden" name="year" value={schoolYear} /> : null}
         <div className="relative">
           <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -246,7 +278,7 @@ export default async function StudentsPage({
 
         <div className="flex gap-2">
           <Button type="submit">{he.students.filter}</Button>
-          {(q || searchParams.class || searchParams.risk) && (
+          {(q || searchParams.class || searchParams.risk || viewingPast) && (
             <Button asChild type="button" variant="ghost">
               <Link href="/students">{he.students.clear}</Link>
             </Button>
@@ -276,17 +308,23 @@ export default async function StudentsPage({
         <EmptyState
           icon={Users}
           title={he.students.noMatch}
-          description={he.students.noMatchDesc}
+          description={
+            !viewingPast && !q && !searchParams.class && !searchParams.risk
+              ? he.schoolYear.emptyCurrentYear
+              : he.students.noMatchDesc
+          }
           action={
             <Button asChild variant="secondary">
-              <Link href="/students">{he.students.clearFilters}</Link>
+              <Link href={viewingPast ? `/students?year=${schoolYear}` : "/students"}>
+                {he.students.clearFilters}
+              </Link>
             </Button>
           }
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {students.map((s) => (
-            <StudentCard key={s.id} student={s} />
+            <StudentCard key={s.id} student={s} year={schoolYear} />
           ))}
         </div>
       )}

@@ -21,12 +21,19 @@ export type StudentCardData = {
   latestGrade?: { value: number; subject: string } | null;
 };
 
-export function StudentCard({ student }: { student: StudentCardData }) {
+export function StudentCard({
+  student,
+  year,
+}: {
+  student: StudentCardData;
+  year?: string;
+}) {
   const name = `${student.firstName} ${student.lastName}`;
+  const href = year ? `/students/${student.id}?year=${encodeURIComponent(year)}` : `/students/${student.id}`;
 
   return (
     <article className="group relative flex flex-col rounded-2xl border border-border/60 bg-card p-5 shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-glow">
-      <Link href={`/students/${student.id}`} className="absolute inset-0 z-0 rounded-2xl">
+      <Link href={href} className="absolute inset-0 z-0 rounded-2xl">
         <span className="sr-only">{name}</span>
       </Link>
       <div className="relative z-10 flex items-start justify-between gap-3">

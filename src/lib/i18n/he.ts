@@ -67,8 +67,13 @@ export const he = {
     welcome: (firstName: string) => `שלום, ${firstName}`,
     title: "לוח בקרה",
     subtitle: "הנה מצב הכיתות שלך עכשיו.",
+    subtitleWithYear: (year: string) => `שנת לימודים ${year} — מצב הכיתות עכשיו.`,
     subtitleClassOnly: (className: string) =>
       `נתונים לכיתה ${className} בלבד — ממוצעים, התפלגות ורשימות לפי ציונים באותה כיתה.`,
+    emptyYearHint:
+      "אין עדיין ציונים לשנה הנוכחית. התלמידים עדיין במערכת — העלו ציונים חדשים, או פתחו כרטיס תלמיד ובחרו שנה קודמת בארכיון.",
+    noGradesYetPerformers: "אין עדיין ציונים לשנה זו — המצטיינים יופיעו אחרי העלאה.",
+    noGradesYetAttention: "אין עדיין ציונים לשנה זו — רשימת תשומת הלב תתעדכן אחרי העלאה.",
     uploadGrades: "העלאת ציונים",
     viewStudents: "רשימת תלמידים",
     totalStudents: "תלמידים",

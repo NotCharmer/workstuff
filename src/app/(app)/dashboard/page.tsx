@@ -90,8 +90,13 @@ export default async function DashboardPage({
           <p className="mt-1 text-sm text-muted-foreground">
             {s.selectedClassFilter
               ? he.dashboard.subtitleClassOnly(s.selectedClassFilter)
-              : he.dashboard.subtitle}
+              : he.dashboard.subtitleWithYear(schoolYear)}
           </p>
+          {s.totalStudents > 0 && s.totalGrades === 0 ? (
+            <p className="mt-2 max-w-2xl text-sm text-amber-700 dark:text-amber-400">
+              {he.dashboard.emptyYearHint}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <form className="flex flex-wrap items-center gap-2" action="/dashboard" method="get">
@@ -224,7 +229,11 @@ export default async function DashboardPage({
               <EmptyState
                 icon={Activity}
                 title={he.dashboard.noGradesInChart}
-                description={he.dashboard.noGradesInChartDesc}
+                description={
+                  s.totalStudents > 0
+                    ? he.schoolYear.emptyCurrentYear
+                    : he.dashboard.noGradesInChartDesc
+                }
                 action={
                   <Button asChild size="sm">
                     <Link href="/upload">{he.dashboard.uploadFirst}</Link>
@@ -299,7 +308,11 @@ export default async function DashboardPage({
           </CardHeader>
           <CardContent className="space-y-3">
             {s.topStudents.length === 0 && (
-              <p className="text-sm text-muted-foreground">{he.dashboard.noStudentsYet}</p>
+              <p className="text-sm text-muted-foreground">
+                {s.totalStudents > 0 && s.totalGrades === 0
+                  ? he.dashboard.noGradesYetPerformers
+                  : he.dashboard.noStudentsYet}
+              </p>
             )}
             {s.topStudents.map((stu, i) => (
               <Link
@@ -340,7 +353,11 @@ export default async function DashboardPage({
           </CardHeader>
           <CardContent className="space-y-3">
             {s.attentionStudents.length === 0 && (
-              <p className="text-sm text-muted-foreground">{he.dashboard.nobodyBelow}</p>
+              <p className="text-sm text-muted-foreground">
+                {s.totalStudents > 0 && s.totalGrades === 0
+                  ? he.dashboard.noGradesYetAttention
+                  : he.dashboard.nobodyBelow}
+              </p>
             )}
             {s.attentionStudents.map((stu) => (
               <Link
