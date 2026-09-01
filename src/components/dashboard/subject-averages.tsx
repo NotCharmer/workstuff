@@ -33,9 +33,11 @@ type SubjectAverage = {
 export function SubjectAverages({
   items,
   gradeAggregation = "latest",
+  year,
 }: {
   items: SubjectAverage[];
   gradeAggregation?: GradeAggregationMode;
+  year?: string;
 }) {
   const [active, setActive] = useState<SubjectAverage | null>(null);
 
@@ -126,7 +128,11 @@ export function SubjectAverages({
                   {active.students.map((stu, i) => (
                     <li key={stu.gradeId}>
                       <Link
-                        href={`/students/${stu.id}`}
+                        href={
+                          year
+                            ? `/students/${stu.id}?year=${encodeURIComponent(year)}`
+                            : `/students/${stu.id}`
+                        }
                         onClick={() => setActive(null)}
                         className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-secondary"
                       >

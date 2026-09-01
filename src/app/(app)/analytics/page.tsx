@@ -17,26 +17,61 @@ import { MetricCard } from "@/components/dashboard/metric-card";
 import { getDashboardStats } from "@/lib/stats";
 import { getCurrentUserOrRedirect } from "@/lib/auth";
 import { getViewBranchId } from "@/lib/branch-scope";
-import { getCurrentSchoolYear } from "@/lib/school-year";
+import {
+  getCurrentSchoolYear,
+  listSchoolYears,
+  resolveSelectedSchoolYear,
+} from "@/lib/school-year";
 import { formatGrade, initials, percent } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
+import { SchoolYearSelect } from "@/components/students/school-year-select";
 
 export const dynamic = "force-dynamic";
 
-export default async function AnalyticsPage() {
+export default async function AnalyticsPage({
+  searchParams,
+}: {
+  searchParams?: { year?: string };
+}) {
   const user = await getCurrentUserOrRedirect();
   const branchId = await getViewBranchId(user);
-  const schoolYear = await getCurrentSchoolYear();
-  const s = await getDashboardStats("important", null, "latest", branchId, schoolYear);
+  const currentSchoolYear = await getCurrentSchoolYear();
+  const availableYears = await listSchoolYears(branchId);
+  const selectedYear = resolveSelectedSchoolYear(
+    searchParams?.year,
+    availableYears,
+    currentSchoolYear
+  );
+  const isCurrentYear = selectedYear === currentSchoolYear;
+  const archiveYear = isCurrentYear ? null : selectedYear;
+  const s = await getDashboardStats(
+    "important",
+    null,
+    "latest",
+    branchId,
+    selectedYear,
+    currentSchoolYear
+  );
   const passRate = percent(s.passCount, s.passCount + s.failCount);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">
-          {he.analytics.title}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{he.analytics.subtitle}</p>
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
+        <div>
+          <h1 className="font-display text-3xl font-semibold tracking-tight">
+            {he.analytics.title}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isCurrentYear
+              ? he.analytics.subtitle
+              : he.schoolYear.viewingPast(selectedYear)}
+          </p>
+        </div>
+        <SchoolYearSelect
+          currentSchoolYear={currentSchoolYear}
+          years={availableYears}
+          selectedYear={selectedYear}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -86,7 +121,7 @@ export default async function AnalyticsPage() {
             <CardDescription>{he.analytics.subjectHover}</CardDescription>
           </CardHeader>
           <CardContent>
-            <SubjectAverages items={s.subjectAverages} />
+            <SubjectAverages items={s.subjectAverages} year={archiveYear ?? undefined} />
           </CardContent>
         </Card>
       </div>
@@ -99,12 +134,18 @@ export default async function AnalyticsPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {s.topStudents.length === 0 && (
-              <p className="text-sm text-muted-foreground">{he.analytics.noData}</p>
+              <p className="text-sm text-muted-foreground">
+                {s.totalGrades === 0 ? he.dashboard.noGradesThisYear : he.analytics.noData}
+              </p>
             )}
             {s.topStudents.map((stu, i) => (
               <Link
                 key={stu.id}
-                href={`/students/${stu.id}`}
+                href={
+                  archiveYear
+                    ? `/students/${stu.id}?year=${encodeURIComponent(archiveYear)}`
+                    : `/students/${stu.id}`
+                }
                 className="-mx-2 flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-secondary"
               >
                 <span className="w-5 text-center text-xs font-semibold text-muted-foreground">
@@ -137,12 +178,20 @@ export default async function AnalyticsPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {s.attentionStudents.length === 0 && (
-              <p className="text-sm text-muted-foreground">{he.analytics.everyoneAbove}</p>
+              <p className="text-sm text-muted-foreground">
+                {s.totalGrades === 0
+                  ? he.dashboard.noGradesThisYear
+                  : he.analytics.everyoneAbove}
+              </p>
             )}
             {s.attentionStudents.map((stu) => (
               <Link
                 key={stu.id}
-                href={`/students/${stu.id}`}
+                href={
+                  archiveYear
+                    ? `/students/${stu.id}?year=${encodeURIComponent(archiveYear)}`
+                    : `/students/${stu.id}`
+                }
                 className="-mx-2 flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-secondary"
               >
                 <Avatar className="h-9 w-9">

@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/db";
 
 const GRADE_LAYERS = ["י", "יא", "יב"] as const;
@@ -84,4 +86,40 @@ export async function getOrCreateAppConfig(): Promise<{ currentSchoolYear: strin
 export async function getCurrentSchoolYear(): Promise<string> {
   const config = await getOrCreateAppConfig();
   return config.currentSchoolYear;
+}
+
+/** Untagged grades belong to the current year; past years match the stored label only. */
+export function gradeWhereForSchoolYear(
+  selectedYear: string,
+  currentYear: string
+): Prisma.GradeWhereInput {
+  if (selectedYear === currentYear) {
+    return { OR: [{ schoolYear: selectedYear }, { schoolYear: null }] };
+  }
+  return { schoolYear: selectedYear };
+}
+
+export async function listSchoolYears(branchId: string | null): Promise<string[]> {
+  const current = await getCurrentSchoolYear();
+  const rows = await prisma.grade.findMany({
+    where: {
+      schoolYear: { not: null },
+      student: { branchId: branchId ?? null },
+    },
+    distinct: ["schoolYear"],
+    select: { schoolYear: true },
+  });
+  const fromGrades = rows
+    .map((row) => row.schoolYear)
+    .filter((year): year is string => Boolean(year));
+  return Array.from(new Set([current, ...fromGrades])).sort((a, b) => b.localeCompare(a));
+}
+
+export function resolveSelectedSchoolYear(
+  requested: string | undefined,
+  years: string[],
+  current: string
+): string {
+  if (requested && years.includes(requested)) return requested;
+  return current;
 }

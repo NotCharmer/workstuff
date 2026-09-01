@@ -10,7 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { he } from "@/lib/i18n/he";
 import { getCurrentUserOrRedirect } from "@/lib/auth";
 import { getViewBranchId } from "@/lib/branch-scope";
-import { getCurrentSchoolYear } from "@/lib/school-year";
+import {
+  getCurrentSchoolYear,
+  gradeWhereForSchoolYear,
+  listSchoolYears,
+  resolveSelectedSchoolYear,
+} from "@/lib/school-year";
+import { SchoolYearSelect } from "@/components/students/school-year-select";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +25,7 @@ type SearchParams = {
   class?: string;
   risk?: "low" | "high";
   avg?: "all" | "important";
+  year?: string;
 };
 
 const IMPORTANT_SUBJECT_TOKENS = [
@@ -62,28 +69,27 @@ function isImportantSubject(subjectName: string): boolean {
 async function fetchStudents(
   params: SearchParams,
   branchId: string | null,
-  schoolYear: string
+  selectedYear: string,
+  currentYear: string
 ): Promise<StudentCardData[]> {
   const q = params.q?.trim();
   const className = params.class?.trim();
   const averageMode: "all" | "important" = params.avg === "all" ? "all" : "important";
-
-  const yearGradeFilter = {
-    OR: [{ schoolYear }, { schoolYear: null }],
-  };
+  const isCurrentYear = selectedYear === currentYear;
+  const yearGradeFilter = gradeWhereForSchoolYear(selectedYear, currentYear);
 
   const students = await prisma.student.findMany({
     where: {
       AND: [
         {
           branchId,
-          status: "ACTIVE",
+          ...(isCurrentYear ? { status: "ACTIVE" as const } : {}),
         },
         {
           grades: {
-            some: {
-              AND: [REQUIRED_SUBJECT_FILTER, yearGradeFilter],
-            },
+            some: isCurrentYear
+              ? REQUIRED_SUBJECT_FILTER
+              : { AND: [REQUIRED_SUBJECT_FILTER, { schoolYear: selectedYear }] },
           },
         },
         q
@@ -144,10 +150,6 @@ async function fetchStudents(
           .sort((a, b) => Number(b.startsWith("★")) - Number(a.startsWith("★")))
       )
     );
-    const highScoreSubjects = [...latestBySubject.entries()]
-      .filter(([, value]) => value > 85)
-      .map(([subjectName]) => subjectName)
-      .sort((a, b) => a.localeCompare(b, "he"));
     const latest = s.grades[0]
       ? { value: s.grades[0].value, subject: s.grades[0].subject.name }
       : null;
@@ -157,13 +159,11 @@ async function fetchStudents(
       lastName: s.lastName,
       externalId: s.externalId,
       className: s.className,
-      gender: s.gender === "FEMALE" ? "FEMALE" : "MALE",
+      gender: s.gender === "FEMALE" ? "FEMALE" : s.gender === "MALE" ? "MALE" : null,
       avatarHue: s.avatarHue,
       gradeCount: latestBySubject.size,
       average: avg,
-      averageMode,
       subjects,
-      highScoreSubjects,
       latestGrade: latest,
     };
   });
@@ -180,11 +180,29 @@ export default async function StudentsPage({
 }) {
   const user = await getCurrentUserOrRedirect();
   const branchId = await getViewBranchId(user);
-  const schoolYear = await getCurrentSchoolYear();
-  const students = await fetchStudents(searchParams, branchId, schoolYear);
+  const currentSchoolYear = await getCurrentSchoolYear();
+  const availableYears = await listSchoolYears(branchId);
+  const selectedYear = resolveSelectedSchoolYear(
+    searchParams.year,
+    availableYears,
+    currentSchoolYear
+  );
+  const isCurrentYear = selectedYear === currentSchoolYear;
+  const students = await fetchStudents(
+    searchParams,
+    branchId,
+    selectedYear,
+    currentSchoolYear
+  );
 
   const classes = await prisma.student.findMany({
-    where: { branchId, status: "ACTIVE", className: { not: null } },
+    where: isCurrentYear
+      ? { branchId, status: "ACTIVE", className: { not: null } }
+      : {
+          branchId,
+          className: { not: null },
+          grades: { some: { schoolYear: selectedYear } },
+        },
     select: { className: true },
     distinct: ["className"],
   });
@@ -193,6 +211,10 @@ export default async function StudentsPage({
   ) as string[];
 
   const q = searchParams.q ?? "";
+  const studentsClearHref =
+    selectedYear !== currentSchoolYear
+      ? `/students?year=${encodeURIComponent(selectedYear)}`
+      : "/students";
 
   return (
     <div className="space-y-6">
@@ -201,17 +223,31 @@ export default async function StudentsPage({
           <h1 className="font-display text-3xl font-semibold tracking-tight">
             {he.students.title}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{he.students.subtitle}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isCurrentYear
+              ? he.students.subtitle
+              : he.schoolYear.viewingPast(selectedYear)}
+          </p>
         </div>
-        <Button asChild>
-          <Link href="/upload">
-            <UploadCloud className="h-4 w-4" />
-            {he.students.uploadGrades}
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <SchoolYearSelect
+            currentSchoolYear={currentSchoolYear}
+            years={availableYears}
+            selectedYear={selectedYear}
+          />
+          <Button asChild>
+            <Link href="/upload">
+              <UploadCloud className="h-4 w-4" />
+              {he.students.uploadGrades}
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <form className="grid grid-cols-1 gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-card md:grid-cols-[1fr_200px_220px_auto]">
+        {selectedYear !== currentSchoolYear && (
+          <input type="hidden" name="year" value={selectedYear} />
+        )}
         <div className="relative">
           <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -248,7 +284,7 @@ export default async function StudentsPage({
           <Button type="submit">{he.students.filter}</Button>
           {(q || searchParams.class || searchParams.risk) && (
             <Button asChild type="button" variant="ghost">
-              <Link href="/students">{he.students.clear}</Link>
+              <Link href={studentsClearHref}>{he.students.clear}</Link>
             </Button>
           )}
         </div>
@@ -275,18 +311,30 @@ export default async function StudentsPage({
       {students.length === 0 ? (
         <EmptyState
           icon={Users}
-          title={he.students.noMatch}
-          description={he.students.noMatchDesc}
+          title={
+            q || searchParams.class || searchParams.risk
+              ? he.students.noMatch
+              : isCurrentYear
+                ? he.students.emptyNewYearTitle
+                : he.students.noMatch
+          }
+          description={
+            q || searchParams.class || searchParams.risk
+              ? he.students.noMatchDesc
+              : isCurrentYear
+                ? he.students.emptyNewYearDesc
+                : he.students.noMatchDesc
+          }
           action={
             <Button asChild variant="secondary">
-              <Link href="/students">{he.students.clearFilters}</Link>
+              <Link href={studentsClearHref}>{he.students.clearFilters}</Link>
             </Button>
           }
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {students.map((s) => (
-            <StudentCard key={s.id} student={s} />
+            <StudentCard key={s.id} student={s} year={isCurrentYear ? undefined : selectedYear} />
           ))}
         </div>
       )}

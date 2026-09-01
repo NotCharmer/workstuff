@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { gradeWhereForSchoolYear } from "./school-year";
 
 export type AverageMode = "all" | "important";
 
@@ -93,19 +94,33 @@ export async function getDashboardStats(
   classFilter?: string | null,
   gradeAggregation: GradeAggregationMode = "latest",
   branchId?: string | null,
-  schoolYear?: string | null
+  schoolYear?: string | null,
+  currentSchoolYear?: string | null
 ): Promise<DashboardStats> {
+  const isCurrentYear =
+    !schoolYear || !currentSchoolYear || schoolYear === currentSchoolYear;
+  const studentScope = {
+    branchId: branchId ?? null,
+    ...(isCurrentYear
+      ? { status: "ACTIVE" as const }
+      : schoolYear
+        ? { grades: { some: { schoolYear } } }
+        : {}),
+  };
+
   const [students, grades, uploads] = await Promise.all([
     prisma.student.findMany({
-      where: { branchId: branchId ?? null, status: "ACTIVE" },
+      where: studentScope,
       select: { id: true, firstName: true, lastName: true, className: true },
     }),
     prisma.grade.findMany({
       where: {
-        student: { branchId: branchId ?? null, status: "ACTIVE" },
-        OR: schoolYear
-          ? [{ schoolYear }, { schoolYear: null }]
-          : undefined,
+        student: studentScope,
+        ...(schoolYear && currentSchoolYear
+          ? gradeWhereForSchoolYear(schoolYear, currentSchoolYear)
+          : schoolYear
+            ? { OR: [{ schoolYear }, { schoolYear: null }] }
+            : {}),
       },
       include: {
         student: { select: { id: true, firstName: true, lastName: true, className: true } },

@@ -32,10 +32,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getDashboardStats, type AverageMode, type GradeAggregationMode } from "@/lib/stats";
 import { getCurrentUserOrRedirect } from "@/lib/auth";
 import { getViewBranchId } from "@/lib/branch-scope";
-import { getCurrentSchoolYear } from "@/lib/school-year";
+import {
+  getCurrentSchoolYear,
+  listSchoolYears,
+  resolveSelectedSchoolYear,
+} from "@/lib/school-year";
 import { formatGrade, initials, percent } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
 import { dateLocaleHe, uploadStatusHe } from "@/lib/i18n";
+import { SchoolYearSelect } from "@/components/students/school-year-select";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +53,10 @@ function pickSearchParam(v: string | string[] | undefined): string | undefined {
   return v;
 }
 
+function studentYearHref(id: string, year: string | null) {
+  return year ? `/students/${id}?year=${encodeURIComponent(year)}` : `/students/${id}`;
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -55,7 +64,14 @@ export default async function DashboardPage({
 }) {
   const user = await getCurrentUserOrRedirect();
   const branchId = await getViewBranchId(user);
-  const schoolYear = await getCurrentSchoolYear();
+  const currentSchoolYear = await getCurrentSchoolYear();
+  const availableYears = await listSchoolYears(branchId);
+  const selectedYear = resolveSelectedSchoolYear(
+    pickSearchParam(searchParams.year),
+    availableYears,
+    currentSchoolYear
+  );
+  const isCurrentYear = selectedYear === currentSchoolYear;
   const averageMode: AverageMode =
     pickSearchParam(searchParams.avg) === "all" ? "all" : "important";
   const classRaw = pickSearchParam(searchParams.class)?.trim() || null;
@@ -64,7 +80,14 @@ export default async function DashboardPage({
 
   let s;
   try {
-    s = await getDashboardStats(averageMode, classRaw, gradeAggregation, branchId, schoolYear);
+    s = await getDashboardStats(
+      averageMode,
+      classRaw,
+      gradeAggregation,
+      branchId,
+      selectedYear,
+      currentSchoolYear
+    );
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[dashboard] getDashboardStats failed:", e);
@@ -75,6 +98,7 @@ export default async function DashboardPage({
     );
   }
 
+  const archiveYear = isCurrentYear ? null : selectedYear;
   const passRate = percent(s.passCount, s.passCount + s.failCount);
 
   return (
@@ -88,13 +112,23 @@ export default async function DashboardPage({
             {he.dashboard.title}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {s.selectedClassFilter
-              ? he.dashboard.subtitleClassOnly(s.selectedClassFilter)
-              : he.dashboard.subtitle}
+            {isCurrentYear
+              ? s.selectedClassFilter
+                ? he.dashboard.subtitleClassOnly(s.selectedClassFilter)
+                : he.dashboard.subtitle
+              : he.schoolYear.viewingPast(selectedYear)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <SchoolYearSelect
+            currentSchoolYear={currentSchoolYear}
+            years={availableYears}
+            selectedYear={selectedYear}
+          />
           <form className="flex flex-wrap items-center gap-2" action="/dashboard" method="get">
+            {selectedYear !== currentSchoolYear && (
+              <input type="hidden" name="year" value={selectedYear} />
+            )}
             <label className="sr-only" htmlFor="dash-class">
               {he.students.allClasses}
             </label>
@@ -285,6 +319,7 @@ export default async function DashboardPage({
               <SubjectAverages
                 items={s.subjectAverages}
                 gradeAggregation={s.selectedGradeAggregation}
+                year={archiveYear ?? undefined}
               />
           </CardContent>
         </Card>
@@ -299,12 +334,18 @@ export default async function DashboardPage({
           </CardHeader>
           <CardContent className="space-y-3">
             {s.topStudents.length === 0 && (
-              <p className="text-sm text-muted-foreground">{he.dashboard.noStudentsYet}</p>
+              <p className="text-sm text-muted-foreground">
+                {s.totalStudents === 0
+                  ? availableYears.length > 1
+                    ? he.dashboard.noStudentsThisYear
+                    : he.dashboard.noStudentsYet
+                  : he.dashboard.noGradesThisYear}
+              </p>
             )}
             {s.topStudents.map((stu, i) => (
               <Link
                 key={stu.id}
-                href={`/students/${stu.id}`}
+                href={studentYearHref(stu.id, archiveYear)}
                 className="-mx-2 flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-secondary"
               >
                 <span className="w-5 text-center text-xs font-semibold text-muted-foreground">
@@ -340,12 +381,16 @@ export default async function DashboardPage({
           </CardHeader>
           <CardContent className="space-y-3">
             {s.attentionStudents.length === 0 && (
-              <p className="text-sm text-muted-foreground">{he.dashboard.nobodyBelow}</p>
+              <p className="text-sm text-muted-foreground">
+                {s.totalGrades === 0
+                  ? he.dashboard.noGradesThisYear
+                  : he.dashboard.nobodyBelow}
+              </p>
             )}
             {s.attentionStudents.map((stu) => (
               <Link
                 key={stu.id}
-                href={`/students/${stu.id}`}
+                href={studentYearHref(stu.id, archiveYear)}
                 className="-mx-2 flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-secondary"
               >
                 <Avatar className="h-9 w-9">
