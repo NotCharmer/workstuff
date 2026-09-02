@@ -76,10 +76,10 @@ export const RequestSchema = z
       .nullable(),
   })
   .superRefine((data, ctx) => {
-    if (data.kind === "TUTORING" && !data.studentId) {
+    if (!data.studentId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "בחרו תלמיד לתגבור",
+        message: data.kind === "EQUIPMENT" ? "בחרו שוחר" : "בחרו תלמיד לתגבור",
         path: ["studentId"],
       });
     }

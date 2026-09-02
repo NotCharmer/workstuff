@@ -64,7 +64,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const studentId = parsed.data.kind === "TUTORING" ? parsed.data.studentId ?? null : null;
+    const studentId = parsed.data.studentId ?? null;
     if (studentId) {
       const student = await prisma.student.findFirst({
         where: { id: studentId, branchId },

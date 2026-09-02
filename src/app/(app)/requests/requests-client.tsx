@@ -52,6 +52,63 @@ export type RequestRow = {
 
 type StatusFilter = "all" | RequestStatus;
 
+function StudentPickers({
+  idPrefix,
+  studentLabel,
+  classFilter,
+  onClassChange,
+  classes,
+  studentId,
+  onStudentChange,
+  studentsInClass,
+}: {
+  idPrefix: string;
+  studentLabel: string;
+  classFilter: string;
+  onClassChange: (value: string) => void;
+  classes: string[];
+  studentId: string;
+  onStudentChange: (value: string) => void;
+  studentsInClass: StudentOption[];
+}) {
+  return (
+    <>
+      <div className="space-y-1">
+        <Label htmlFor={`${idPrefix}-class`}>{he.requests.fieldClass}</Label>
+        <select
+          id={`${idPrefix}-class`}
+          value={classFilter}
+          onChange={(e) => onClassChange(e.target.value)}
+          className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+        >
+          <option value="">{he.requests.fieldClassAll}</option>
+          {classes.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`${idPrefix}-student`}>{studentLabel}</Label>
+        <select
+          id={`${idPrefix}-student`}
+          value={studentId}
+          onChange={(e) => onStudentChange(e.target.value)}
+          className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+        >
+          {studentsInClass.length === 0 && <option value="">{he.requests.noStudent}</option>}
+          {studentsInClass.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.className ? `${s.name} · ${s.className}` : s.name}
+            </option>
+          ))}
+        </select>
+      </div>
+    </>
+  );
+}
+
 function formatDateHe(iso: string) {
   return new Intl.DateTimeFormat("he-IL", {
     day: "numeric",
@@ -154,6 +211,10 @@ export function RequestsClient({
 
   function submitEquipment(e: React.FormEvent) {
     e.preventDefault();
+    if (!effectiveStudentId) {
+      toast.error(he.requests.studentRequired);
+      return;
+    }
     const title = item.trim();
     if (!title) {
       toast.error(he.requests.titleRequired);
@@ -166,6 +227,7 @@ export function RequestsClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind: "EQUIPMENT",
+          studentId: effectiveStudentId,
           title,
           quantity: Number.isFinite(qty) && qty >= 1 ? qty : 1,
           details: equipmentDetails.trim() || null,
@@ -259,38 +321,16 @@ export function RequestsClient({
             </CardHeader>
             <CardContent>
               <form onSubmit={submitTutoring} className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor="req-class">{he.requests.fieldClass}</Label>
-                  <select
-                    id="req-class"
-                    value={classFilter}
-                    onChange={(e) => setClassFilter(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
-                  >
-                    <option value="">{he.requests.fieldClassAll}</option>
-                    {classes.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="req-student">{he.requests.fieldStudent}</Label>
-                  <select
-                    id="req-student"
-                    value={effectiveStudentId}
-                    onChange={(e) => setStudentId(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
-                  >
-                    {studentsInClass.length === 0 && <option value="">{he.requests.noStudent}</option>}
-                    {studentsInClass.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.className ? `${s.name} · ${s.className}` : s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <StudentPickers
+                  idPrefix="tutoring"
+                  studentLabel={he.requests.fieldStudent}
+                  classFilter={classFilter}
+                  onClassChange={setClassFilter}
+                  classes={classes}
+                  studentId={effectiveStudentId}
+                  onStudentChange={setStudentId}
+                  studentsInClass={studentsInClass}
+                />
                 <div className="space-y-1">
                   <Label htmlFor="req-subject">{he.requests.fieldSubject}</Label>
                   <Input
@@ -339,6 +379,16 @@ export function RequestsClient({
             </CardHeader>
             <CardContent>
               <form onSubmit={submitEquipment} className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <StudentPickers
+                  idPrefix="equipment"
+                  studentLabel={he.requests.fieldCadet}
+                  classFilter={classFilter}
+                  onClassChange={setClassFilter}
+                  classes={classes}
+                  studentId={effectiveStudentId}
+                  onStudentChange={setStudentId}
+                  studentsInClass={studentsInClass}
+                />
                 <div className="space-y-1">
                   <Label htmlFor="req-item">{he.requests.fieldItem}</Label>
                   <Input
@@ -492,7 +542,7 @@ function RequestList({
                       {row.status === "OPEN" ? he.requests.statusOpen : he.requests.statusDone}
                     </Badge>
                   </div>
-                  {kind === "TUTORING" && (
+                  {(kind === "TUTORING" || row.studentName) && (
                     <p className="mt-0.5 text-sm text-muted-foreground">
                       {row.studentName ?? he.requests.noStudent}
                       {row.studentClassName ? ` · ${row.studentClassName}` : ""}
