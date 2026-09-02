@@ -85,13 +85,15 @@ async function fetchStudents(
           branchId,
           ...(isCurrentYear ? { status: "ACTIVE" as const } : {}),
         },
-        {
-          grades: {
-            some: isCurrentYear
-              ? REQUIRED_SUBJECT_FILTER
-              : { AND: [REQUIRED_SUBJECT_FILTER, { schoolYear: selectedYear }] },
-          },
-        },
+        isCurrentYear
+          ? {}
+          : {
+              grades: {
+                some: {
+                  AND: [REQUIRED_SUBJECT_FILTER, { schoolYear: selectedYear }],
+                },
+              },
+            },
         q
           ? {
               OR: [
