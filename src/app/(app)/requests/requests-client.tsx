@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import {
   ClipboardList,
+  Copy,
   GraduationCap,
   Loader2,
   Package,
@@ -119,6 +120,37 @@ function formatDateHe(iso: string) {
   }).format(new Date(iso));
 }
 
+function studentLine(row: RequestRow) {
+  if (!row.studentName) return "";
+  return row.studentClassName ? `${row.studentName}, ${row.studentClassName}` : row.studentName;
+}
+
+function formatRequestLine(row: RequestRow) {
+  const who = studentLine(row);
+  const item =
+    row.kind === "EQUIPMENT" && row.quantity
+      ? `${row.title} ${he.requests.quantityLabel(row.quantity)}`
+      : row.title;
+  const status = row.status === "DONE" ? ` (${he.requests.statusDone})` : "";
+  const head = who ? `${who} — ${item}${status}` : `${item}${status}`;
+  return row.details ? `• ${head}\n  ${row.details}` : `• ${head}`;
+}
+
+function formatRequestsForSend(tutoring: RequestRow[], equipment: RequestRow[]) {
+  const parts: string[] = [];
+  if (tutoring.length > 0) {
+    parts.push(`${he.requests.tabTutoring}\n${tutoring.map(formatRequestLine).join("\n")}`);
+  }
+  if (equipment.length > 0) {
+    parts.push(`${he.requests.tabEquipment}\n${equipment.map(formatRequestLine).join("\n")}`);
+  }
+  return parts.join("\n\n");
+}
+
+async function copyText(text: string) {
+  await navigator.clipboard.writeText(text);
+}
+
 export function RequestsClient({
   students,
   initialRequests,
@@ -173,6 +205,20 @@ export function RequestsClient({
       if (a.status !== b.status) return a.status === "OPEN" ? -1 : 1;
       return b.createdAt.localeCompare(a.createdAt);
     });
+  }
+
+  async function copyAllForSend() {
+    const text = formatRequestsForSend(applyFilter(tutoring), applyFilter(equipment));
+    if (!text) {
+      toast.error(he.requests.copyEmpty);
+      return;
+    }
+    try {
+      await copyText(text);
+      toast.success(he.requests.toastCopied);
+    } catch {
+      toast.error(he.requests.copyFailed);
+    }
   }
 
   function submitTutoring(e: React.FormEvent) {
@@ -276,11 +322,23 @@ export function RequestsClient({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">
-          {he.requests.title}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{he.requests.subtitle}</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-semibold tracking-tight">
+            {he.requests.title}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">{he.requests.subtitle}</p>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          className="shrink-0 gap-1"
+          aria-label={he.requests.copyForSendAria}
+          onClick={copyAllForSend}
+        >
+          <Copy className="h-4 w-4" />
+          {he.requests.copyForSend}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
