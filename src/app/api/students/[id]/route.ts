@@ -20,20 +20,30 @@ export async function PATCH(
   }
 
   try {
+    const data: {
+      gender?: "MALE" | "FEMALE" | null;
+      firstName?: string;
+      lastName?: string;
+    } = {};
+    if (Object.prototype.hasOwnProperty.call(parsed.data, "gender")) {
+      data.gender = parsed.data.gender;
+    }
+    if (parsed.data.firstName !== undefined) data.firstName = parsed.data.firstName;
+    if (parsed.data.lastName !== undefined) data.lastName = parsed.data.lastName;
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ ok: false, error: he.api.invalidInput }, { status: 400 });
+    }
+
     const updated = await prisma.student.updateMany({
       where: { id: params.id, branchId: branchId },
-      data: {
-        gender: Object.prototype.hasOwnProperty.call(parsed.data, "gender")
-          ? parsed.data.gender
-          : undefined,
-      },
+      data,
     });
     if (updated.count === 0) {
       return NextResponse.json({ ok: false, error: he.api.studentNotFound }, { status: 404 });
     }
     const student = await prisma.student.findFirst({
       where: { id: params.id, branchId: branchId },
-      select: { id: true, gender: true },
+      select: { id: true, gender: true, firstName: true, lastName: true },
     });
     return NextResponse.json({ ok: true, student });
   } catch (error) {

@@ -32,6 +32,7 @@ import { GradeTrend } from "@/components/students/grade-trend";
 import { NotesPanel } from "@/components/students/notes-panel";
 import { GradeManager } from "@/components/students/grade-manager";
 import { StudentGenderSelect } from "@/components/students/student-gender-select";
+import { StudentNameEdit } from "@/components/students/student-name-edit";
 import { SubjectBreakdownList } from "@/components/students/subject-breakdown-list";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { avatarGradient, formatGrade, initials } from "@/lib/utils";
@@ -197,7 +198,14 @@ export default async function StudentDetailPage({
               </AvatarFallback>
             </Avatar>
             <div>
-              <h1 className="font-display text-3xl font-semibold tracking-tight">{name}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="font-display text-3xl font-semibold tracking-tight">{name}</h1>
+                <StudentNameEdit
+                  studentId={student.id}
+                  firstName={student.firstName}
+                  lastName={student.lastName}
+                />
+              </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                 {student.externalId && (
                   <span className="inline-flex items-center gap-1.5">

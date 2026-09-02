@@ -144,6 +144,8 @@ export type StudentGenderInput = z.infer<typeof StudentGenderSchema>;
 
 export const PatchStudentSchema = z.object({
   gender: StudentGenderSchema.nullable().optional(),
+  firstName: z.string().trim().min(1, he.validators.nameRequired).max(80).optional(),
+  lastName: z.string().trim().min(1, he.validators.nameRequired).max(80).optional(),
 });
 export type PatchStudentInput = z.infer<typeof PatchStudentSchema>;
 

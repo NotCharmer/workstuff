@@ -168,6 +168,13 @@ export const he = {
     deleteSuccess: "התלמיד נמחק",
     deleteError: "לא ניתן למחוק את התלמיד כרגע.",
     updateError: "לא ניתן לעדכן את התלמיד כרגע.",
+    editName: "עריכת שם",
+    editNameAria: "עריכת שם התלמיד",
+    firstName: "שם פרטי",
+    lastName: "שם משפחה",
+    saveName: "שמירת שם",
+    nameSaved: "השם עודכן",
+    nameSaveFailed: "לא ניתן לעדכן את השם כרגע.",
   },
   studentGender: {
     label: "מגדר לשימוש בסיכום היומי",

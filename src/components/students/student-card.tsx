@@ -6,6 +6,7 @@ import { avatarGradient, formatGrade, gradeBadgeTone, initials } from "@/lib/uti
 import { he } from "@/lib/i18n/he";
 import { StudentDeleteButton } from "@/components/students/student-delete-button";
 import { StudentGenderSelect } from "@/components/students/student-gender-select";
+import { StudentNameEdit } from "@/components/students/student-name-edit";
 
 export type StudentCardData = {
   id: string;
@@ -57,6 +58,11 @@ export function StudentCard({
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <StudentNameEdit
+            studentId={student.id}
+            firstName={student.firstName}
+            lastName={student.lastName}
+          />
           <StudentDeleteButton studentId={student.id} studentName={name} />
           <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-primary" />
         </div>
