@@ -196,6 +196,36 @@ function classKeyAndLabel(className?: string | null): { key: string; label: stri
   return { key, label: normalizedLabel };
 }
 
+/** Grade level for sort order: י=10, יא=11, יב=12; unknown classes sort last. */
+function parseClassSortOrder(className: string): { grade: number; section: number } {
+  const normalized = className.trim().replace(/\s+/g, "").replace(/[׳'"]/g, "");
+  let rest = normalized;
+  let grade = 99;
+
+  if (rest.startsWith("יב")) {
+    grade = 12;
+    rest = rest.slice(2);
+  } else if (rest.startsWith("יא")) {
+    grade = 11;
+    rest = rest.slice(2);
+  } else if (rest.startsWith("י")) {
+    grade = 10;
+    rest = rest.slice(1);
+  }
+
+  const sectionMatch = rest.match(/^(\d+)/);
+  const section = sectionMatch ? Number.parseInt(sectionMatch[1], 10) : 0;
+  return { grade, section };
+}
+
+function compareClassLabels(a: string, b: string): number {
+  const pa = parseClassSortOrder(a);
+  const pb = parseClassSortOrder(b);
+  if (pa.grade !== pb.grade) return pa.grade - pb.grade;
+  if (pa.section !== pb.section) return pa.section - pb.section;
+  return a.localeCompare(b, "he");
+}
+
 function groupByClass<E extends { className?: string | null }>(
   events: E[]
 ): Map<string, { label: string; items: E[] }> {
@@ -226,7 +256,7 @@ export function buildDailySummary(
 
   const groups = groupByClass(events);
   const orderedClasses = [...groups.entries()].sort((a, b) =>
-    a[1].label.localeCompare(b[1].label, "he")
+    compareClassLabels(a[1].label, b[1].label)
   );
   const emojiFor = buildEmojiResolver();
 
