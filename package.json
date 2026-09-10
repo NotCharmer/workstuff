@@ -20,6 +20,7 @@
     "db:migrate-lesson-marks": "tsx scripts/migrate-lesson-marks-neon.ts",
     "db:migrate-personal-slots": "tsx scripts/migrate-personal-slots-neon.ts",
     "db:reset-password": "tsx scripts/reset-user-password-neon.ts",
+    "test:timetable-replace": "tsx src/lib/timetable/replace.test.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

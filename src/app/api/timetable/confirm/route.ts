@@ -4,12 +4,13 @@ import { getCurrentUser } from "@/lib/auth";
 import { getViewBranchId } from "@/lib/branch-scope";
 import { TimetablePayloadSchema } from "@/lib/validators";
 import { he } from "@/lib/i18n/he";
+import { replaceTimetableEntries } from "@/lib/timetable/replace";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   const user = await getCurrentUser();
-    const branchId = await getViewBranchId(user);
+  const branchId = await getViewBranchId(user);
   const body = await req.json().catch(() => null);
   const parsed = TimetablePayloadSchema.safeParse(body);
   if (!parsed.success) {
@@ -22,12 +23,11 @@ export async function POST(req: Request) {
   const rows = parsed.data.rows;
   const classes = Array.from(new Set(rows.map((r) => r.className.trim())));
 
-  for (const className of classes) {
-    await prisma.timetableEntry.deleteMany({ where: { branchId: branchId, className } });
-  }
-  await prisma.timetableEntry.createMany({
-    data: rows.map((r) => ({
-      branchId: branchId,
+  await replaceTimetableEntries(prisma, {
+    branchId,
+    classes,
+    rows: rows.map((r) => ({
+      branchId,
       className: r.className.trim(),
       dayOfWeek: r.dayOfWeek.trim(),
       startTime: r.startTime.trim(),
