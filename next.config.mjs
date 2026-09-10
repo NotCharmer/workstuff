@@ -34,6 +34,15 @@ const nextConfig = {
   images: {
     remotePatterns: [],
   },
+  experimental: {
+    serverComponentsExternalPackages: [
+      "ws",
+      "bufferutil",
+      "utf-8-validate",
+      "@neondatabase/serverless",
+      "@prisma/adapter-neon",
+    ],
+  },
 };
 
 export default nextConfig;

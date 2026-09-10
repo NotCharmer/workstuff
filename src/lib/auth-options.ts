@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { isStaffGateEmail } from "@/lib/staff-gate";
+import { isPasswordlessLocalAuth } from "@/lib/local-auth";
 import { USER_ROLES, USER_STATUSES, type UserRole, type UserStatus } from "@/lib/enums";
 
 const roleSet = new Set<string>(USER_ROLES);
@@ -19,27 +20,49 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        local: { label: "local", type: "text" },
       },
       async authorize(credentials) {
+        const localBypass =
+          isPasswordlessLocalAuth() && credentials?.local?.toString() === "1";
         const email = credentials?.email?.toString().trim().toLowerCase();
         const password = credentials?.password?.toString() ?? "";
-        if (!email || !password) return null;
+        if (!localBypass && (!email || !password)) return null;
 
         // Gate credentials are not a real user — use /api/staff/gate instead.
-        if (isStaffGateEmail(email)) return null;
+        if (email && isStaffGateEmail(email)) return null;
         let user;
         try {
-          user = await prisma.user.findUnique({
-            where: { email },
-            include: { branch: true },
-          });
+          if (localBypass) {
+            user = email
+              ? await prisma.user.findUnique({
+                  where: { email },
+                  include: { branch: true },
+                })
+              : null;
+            if (!user || email === "local@dev") {
+              user = await prisma.user.findFirst({
+                where: { status: "ACTIVE" },
+                include: { branch: true },
+                orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+              });
+            }
+          } else {
+            user = await prisma.user.findUnique({
+              where: { email: email! },
+              include: { branch: true },
+            });
+          }
         } catch (e) {
           console.error("[auth credentials] database unreachable:", e);
           return null;
         }
-        if (!user?.passwordHash) return null;
-        const ok = await compare(password, user.passwordHash);
-        if (!ok) return null;
+        if (!user?.passwordHash && !localBypass) return null;
+        if (!user) return null;
+        if (!localBypass) {
+          const ok = await compare(password, user.passwordHash!);
+          if (!ok) return null;
+        }
 
         const role: UserRole = roleSet.has(user.role) ? (user.role as UserRole) : "STAFF";
         const status: UserStatus = statusSet.has(user.status) ? (user.status as UserStatus) : "PENDING";

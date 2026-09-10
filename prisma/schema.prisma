@@ -4,7 +4,8 @@
 // are plain strings enforced in application code (see src/lib/enums.ts).
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -32,6 +33,8 @@ model User {
   authoredDailyTasks DailyTask[] @relation("DailyTaskAuthor")
   assignedDailyTasks DailyTask[] @relation("DailyTaskAssignee")
   authoredRequests Request[] @relation("RequestAuthor")
+  lessonMarks      LessonMark[]
+  personalSlots    PersonalSlot[]
 
   @@index([branchId])
 }
@@ -249,6 +252,45 @@ model TimetableEntry {
   @@index([className, dayOfWeek, startTime])
 }
 
+model LessonMark {
+  id            String   @id @default(cuid())
+  userId        String
+  branchId      String
+  className     String
+  dayOfWeek     String
+  startTime     String
+  endTime       String
+  subject       String
+  important     Boolean  @default(false)
+  tutoringPull  Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, branchId, className, dayOfWeek, startTime, endTime, subject], name: "lesson_mark_slot", map: "lesson_mark_slot")
+  @@index([userId, branchId])
+}
+
+model PersonalSlot {
+  id        String   @id @default(cuid())
+  userId    String
+  branchId  String
+  dayOfWeek String
+  startTime String
+  endTime   String
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, branchId, dayOfWeek, startTime, endTime], name: "personal_slot", map: "personal_slot")
+  @@index([userId, branchId])
+}
+
 model Branch {
   id        String   @id @default(cuid())
   code      String   @unique
@@ -265,6 +307,8 @@ model Branch {
   classVisits ClassVisit[]
   timetableEntries TimetableEntry[]
   requests   Request[]
+  lessonMarks LessonMark[]
+  personalSlots PersonalSlot[]
 }
 
 // Singleton app settings (id = "default").

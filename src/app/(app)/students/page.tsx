@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { StudentCard, type StudentCardData } from "@/components/students/student-card";
+import { AddStudentButton } from "@/components/students/add-student-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { he } from "@/lib/i18n/he";
@@ -208,9 +209,20 @@ export default async function StudentsPage({
     select: { className: true },
     distinct: ["className"],
   });
+  const timetableClasses = isCurrentYear
+    ? await prisma.timetableEntry.findMany({
+        where: { branchId, className: { not: "" } },
+        select: { className: true },
+        distinct: ["className"],
+      })
+    : [];
   const classOptions = Array.from(
-    new Set(classes.map((c) => c.className).filter(Boolean))
-  ) as string[];
+    new Set(
+      [...classes, ...timetableClasses]
+        .map((c) => c.className)
+        .filter((c): c is string => Boolean(c?.trim()))
+    )
+  ).sort((a, b) => a.localeCompare(b, "he"));
 
   const q = searchParams.q ?? "";
   const studentsClearHref =
@@ -237,6 +249,7 @@ export default async function StudentsPage({
             years={availableYears}
             selectedYear={selectedYear}
           />
+          {isCurrentYear && <AddStudentButton classOptions={classOptions} />}
           <Button asChild>
             <Link href="/upload">
               <UploadCloud className="h-4 w-4" />

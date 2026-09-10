@@ -149,6 +149,20 @@ export const PatchStudentSchema = z.object({
 });
 export type PatchStudentInput = z.infer<typeof PatchStudentSchema>;
 
+export const CreateStudentSchema = z.object({
+  firstName: z.string().trim().min(1, he.validators.nameRequired).max(80),
+  lastName: z.string().trim().min(1, he.validators.nameRequired).max(80),
+  className: z.string().trim().max(80).optional().nullable(),
+  externalId: z.string().trim().max(80).optional().nullable(),
+  gender: StudentGenderSchema.optional().nullable(),
+});
+export type CreateStudentInput = z.infer<typeof CreateStudentSchema>;
+
+export const CreateStudentsPayloadSchema = z.object({
+  students: z.array(CreateStudentSchema).min(1, he.validators.atLeastOneRow).max(100),
+});
+export type CreateStudentsPayload = z.infer<typeof CreateStudentsPayloadSchema>;
+
 export const TimetableRowSchema = z.object({
   id: z.string(),
   className: z.string().min(1),
@@ -164,6 +178,33 @@ export const TimetableRowSchema = z.object({
 export const TimetablePayloadSchema = z.object({
   rows: z.array(TimetableRowSchema).min(1),
 });
+
+export const PatchLessonMarkSchema = z
+  .object({
+    className: z.string().trim().min(1).max(80),
+    dayOfWeek: z.string().trim().min(1).max(40),
+    startTime: z.string().trim().min(1).max(8),
+    endTime: z.string().trim().min(1).max(8),
+    subject: z.string().trim().min(1).max(120),
+    important: z.boolean().optional(),
+    tutoringPull: z.boolean().optional(),
+    applyToAllOfSubject: z.boolean().optional(),
+  })
+  .refine((data) => data.important !== undefined || data.tutoringPull !== undefined, {
+    message: he.api.invalidInput,
+  })
+  .refine((data) => !data.applyToAllOfSubject || data.important !== undefined, {
+    message: he.api.invalidInput,
+  });
+export type PatchLessonMarkInput = z.infer<typeof PatchLessonMarkSchema>;
+
+export const PatchPersonalSlotSchema = z.object({
+  dayOfWeek: z.string().trim().min(1).max(40),
+  startTime: z.string().trim().min(1).max(8),
+  endTime: z.string().trim().min(1).max(8),
+  title: z.string().max(80),
+});
+export type PatchPersonalSlotInput = z.infer<typeof PatchPersonalSlotSchema>;
 
 export const AdminBranchCreateSchema = z.object({
   code: z

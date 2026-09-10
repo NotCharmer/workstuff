@@ -22,23 +22,21 @@ export async function POST(req: Request) {
   const rows = parsed.data.rows;
   const classes = Array.from(new Set(rows.map((r) => r.className.trim())));
 
-  await prisma.$transaction(async (tx) => {
-    for (const className of classes) {
-      await tx.timetableEntry.deleteMany({ where: { branchId: branchId, className } });
-    }
-    await tx.timetableEntry.createMany({
-      data: rows.map((r) => ({
-        branchId: branchId,
-        className: r.className.trim(),
-        dayOfWeek: r.dayOfWeek.trim(),
-        startTime: r.startTime.trim(),
-        endTime: r.endTime.trim(),
-        subject: r.subject.trim(),
-        teacher: r.teacher?.trim() || null,
-        room: r.room?.trim() || null,
-        source: "IMPORT",
-      })),
-    });
+  for (const className of classes) {
+    await prisma.timetableEntry.deleteMany({ where: { branchId: branchId, className } });
+  }
+  await prisma.timetableEntry.createMany({
+    data: rows.map((r) => ({
+      branchId: branchId,
+      className: r.className.trim(),
+      dayOfWeek: r.dayOfWeek.trim(),
+      startTime: r.startTime.trim(),
+      endTime: r.endTime.trim(),
+      subject: r.subject.trim(),
+      teacher: r.teacher?.trim() || null,
+      room: r.room?.trim() || null,
+      source: "IMPORT",
+    })),
   });
 
   return NextResponse.json({ ok: true, saved: rows.length, classes: classes.length });

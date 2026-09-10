@@ -18,7 +18,9 @@ import {
 } from "@/components/ui/select";
 import { he } from "@/lib/i18n/he";
 import { cn } from "@/lib/utils";
-import { DAY_CANONICAL_ORDER, canonicalDay, dayOrderOf } from "@/lib/timetable/days";
+import { DAY_CANONICAL_ORDER, SCHOOL_PERIODS, canonicalDay, dayOrderOf, padTime } from "@/lib/timetable/days";
+import { lessonMarkKey, type LessonMarkFlags } from "@/lib/timetable/marks";
+import { LessonMarkToggles } from "@/components/timetable/lesson-mark-toggles";
 
 type Entry = {
   id: string;
@@ -32,6 +34,7 @@ type Entry = {
 };
 
 const DAY_OPTIONS = [...DAY_CANONICAL_ORDER];
+const SCHOOL_DAYS = DAY_CANONICAL_ORDER.filter((d) => d !== "שבת");
 
 function toMinutes(time: string): number {
   const m = time.match(/(\d{1,2}):(\d{2})/);
@@ -40,14 +43,6 @@ function toMinutes(time: string): number {
   const minute = Number.parseInt(m[2], 10);
   if (Number.isNaN(hour) || Number.isNaN(minute)) return Number.MAX_SAFE_INTEGER;
   return hour * 60 + minute;
-}
-
-// Zero-pad H:M or H:MM forms to HH:MM so <input type="time"> and the strict
-// isValidTime check work the same on imported and freshly entered values.
-function padTime(value: string): string {
-  const m = value.trim().match(/^(\d{1,2}):(\d{1,2})$/);
-  if (!m) return value.trim();
-  return `${m[1].padStart(2, "0")}:${m[2].padStart(2, "0")}`;
 }
 
 function serializeRows(rows: Entry[]): string {
@@ -90,16 +85,33 @@ function isValidTime(value: string): boolean {
   return /^\d{2}:\d{2}$/.test(value) && toMinutes(value) !== Number.MAX_SAFE_INTEGER;
 }
 
+function addMinutes(time: string, delta: number): string {
+  const total = toMinutes(time) + delta;
+  if (total < 0 || total >= 24 * 60) return time;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
 export function EditableTimetableGrid({
   className,
   initialRows,
+  initialMarks,
+  subjectWideImportant,
+  startEditing = false,
+  keepSchoolDays: _keepSchoolDays = false,
 }: {
   className: string;
   initialRows: Entry[];
+  initialMarks?: Record<string, LessonMarkFlags>;
+  subjectWideImportant?: Record<string, boolean>;
+  startEditing?: boolean;
+  keepSchoolDays?: boolean;
 }) {
   const router = useRouter();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
   const [saving, setSaving] = useState(false);
+  const [extraSlots, setExtraSlots] = useState<{ startTime: string; endTime: string }[]>([]);
   const normalizedInitial = useMemo(() => initialRows.map(normalizeEntry), [initialRows]);
   const [rows, setRows] = useState<Entry[]>(normalizedInitial);
   const [baselineRows, setBaselineRows] = useState<Entry[]>(normalizedInitial);
@@ -122,24 +134,34 @@ export function EditableTimetableGrid({
     }).length;
   }, [rows]);
 
-  const days = useMemo(
-    () =>
-      Array.from(new Set(rows.map((r) => r.dayOfWeek))).sort(
-        (a, b) => dayOrderOf(a) - dayOrderOf(b)
-      ),
-    [rows]
-  );
+  const days = useMemo(() => {
+    const fromRows = Array.from(new Set(rows.map((r) => r.dayOfWeek))).sort(
+      (a, b) => dayOrderOf(a) - dayOrderOf(b)
+    );
+    const set = new Set<string>([...SCHOOL_DAYS, ...fromRows]);
+    return [...set].sort((a, b) => dayOrderOf(a) - dayOrderOf(b));
+  }, [rows]);
 
-  const slots = useMemo(
-    () =>
-      Array.from(new Set(rows.map((r) => `${r.startTime}__${r.endTime}`)))
-        .map((slot) => {
-          const [startTime, endTime] = slot.split("__");
-          return { startTime, endTime };
-        })
-        .sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime)),
-    [rows]
-  );
+  const slots = useMemo(() => {
+    const fromRows = Array.from(new Set(rows.map((r) => `${r.startTime}__${r.endTime}`))).map(
+      (slot) => {
+        const [startTime, endTime] = slot.split("__");
+        return { startTime, endTime };
+      }
+    );
+    const extras = extraSlots.filter(
+      (s) => !fromRows.some((r) => r.startTime === s.startTime && r.endTime === s.endTime)
+    );
+    const seen = new Set(
+      [...fromRows, ...extras].map((s) => `${s.startTime}__${s.endTime}`)
+    );
+    const defaults = SCHOOL_PERIODS.filter((s) => !seen.has(`${s.startTime}__${s.endTime}`)).map(
+      (s) => ({ startTime: s.startTime, endTime: s.endTime })
+    );
+    return [...fromRows, ...extras, ...defaults].sort(
+      (a, b) => toMinutes(a.startTime) - toMinutes(b.startTime)
+    );
+  }, [rows, extraSlots]);
 
   const byCell = useMemo(() => {
     const map = new Map<string, Entry[]>();
@@ -197,6 +219,14 @@ export function EditableTimetableGrid({
     ]);
   }
 
+  function addTimeSlot() {
+    const last = slots[slots.length - 1] ?? { startTime: "08:00", endTime: "08:45" };
+    const startTime = addMinutes(last.endTime, 5);
+    const endTime = addMinutes(startTime, 45);
+    if (startTime === last.endTime) return;
+    setExtraSlots((prev) => [...prev, { startTime, endTime }]);
+  }
+
   function addLessonAt(dayOfWeek: string, startTime: string, endTime: string) {
     setRows((prev) => [
       ...prev,
@@ -225,6 +255,7 @@ export function EditableTimetableGrid({
 
   function cancelEditing() {
     setRows(baselineRows);
+    setExtraSlots([]);
     setEditing(false);
   }
 
@@ -295,7 +326,10 @@ export function EditableTimetableGrid({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <CardTitle>{className}</CardTitle>
-            <CardDescription>{he.timetable.classSchedule}</CardDescription>
+            <CardDescription>
+              {he.timetable.classSchedule}
+              {!editing ? ` · ${he.timetable.markHint}` : ""}
+            </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">
@@ -317,6 +351,10 @@ export function EditableTimetableGrid({
                 <Button type="button" size="sm" variant="outline" onClick={addLesson}>
                   <Plus className="me-1 h-4 w-4" />
                   {he.timetable.addLesson}
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={addTimeSlot}>
+                  <Plus className="me-1 h-4 w-4" />
+                  {he.timetable.addSlot}
                 </Button>
                 <Button type="button" size="sm" variant="outline" onClick={cancelEditing}>
                   <X className="me-1 h-4 w-4" />
@@ -463,6 +501,17 @@ export function EditableTimetableGrid({
                                       </span>
                                     )}
                                   </div>
+                                  <LessonMarkToggles
+                                    className={lesson.className || className}
+                                    dayOfWeek={lesson.dayOfWeek}
+                                    startTime={lesson.startTime}
+                                    endTime={lesson.endTime}
+                                    subject={lesson.subject}
+                                    initial={initialMarks?.[lessonMarkKey(lesson)]}
+                                    subjectWideImportant={
+                                      subjectWideImportant?.[lesson.subject.trim()] ?? false
+                                    }
+                                  />
                                 </>
                               ) : (
                                 <div className="space-y-1.5">

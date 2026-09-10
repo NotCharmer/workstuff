@@ -20,6 +20,21 @@ export const DAY_CANONICAL_ORDER = [
   "שבת",
 ] as const;
 
+/** Periods from the Ort Smart School printouts (no unlabeled hour 0). */
+export const SCHOOL_PERIODS = [
+  { startTime: "08:15", endTime: "09:00" },
+  { startTime: "09:00", endTime: "09:45" },
+  { startTime: "10:10", endTime: "10:55" },
+  { startTime: "10:55", endTime: "11:40" },
+  { startTime: "11:55", endTime: "12:40" },
+  { startTime: "12:40", endTime: "13:25" },
+  { startTime: "13:35", endTime: "14:20" },
+  { startTime: "14:25", endTime: "15:10" },
+  { startTime: "15:15", endTime: "16:00" },
+  { startTime: "16:00", endTime: "16:45" },
+  { startTime: "16:45", endTime: "17:30" },
+] as const;
+
 export type CanonicalDay = (typeof DAY_CANONICAL_ORDER)[number];
 
 const DAY_LOOKUP: Record<string, CanonicalDay> = {
@@ -86,6 +101,12 @@ export const DAY_ORDER: Record<string, number> = DAY_CANONICAL_ORDER.reduce(
   },
   {} as Record<string, number>
 );
+
+export function padTime(value: string): string {
+  const m = value.trim().match(/^(\d{1,2}):(\d{1,2})$/);
+  if (!m) return value.trim();
+  return `${String(m[1]).padStart(2, "0")}:${String(m[2]).padStart(2, "0")}`;
+}
 
 // Lookup that is tolerant of legacy/non-canonical values still in the database.
 export function dayOrderOf(input: string): number {

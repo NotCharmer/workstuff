@@ -21,17 +21,13 @@ export async function getUserAccessibleBranchIds(userId: string): Promise<string
 
 export async function syncUserBranchAccess(userId: string, branchIds: string[]): Promise<void> {
   const unique = [...new Set(branchIds.filter(Boolean))];
-  await prisma.$transaction([
-    prisma.userBranchAccess.deleteMany({ where: { userId } }),
-    ...(unique.length > 0
-      ? [
-          prisma.userBranchAccess.createMany({
-            data: unique.map((branchId) => ({ userId, branchId })),
-            skipDuplicates: true,
-          }),
-        ]
-      : []),
-  ]);
+  await prisma.userBranchAccess.deleteMany({ where: { userId } });
+  if (unique.length > 0) {
+    await prisma.userBranchAccess.createMany({
+      data: unique.map((branchId) => ({ userId, branchId })),
+      skipDuplicates: true,
+    });
+  }
 }
 
 export async function userCanSwitchBranches(userId: string, role: string): Promise<boolean> {
