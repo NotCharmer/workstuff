@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { he } from "@/lib/i18n/he";
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { update: updateSession } = useSession();
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -41,7 +43,8 @@ export default function OnboardingPage() {
         setError(json?.error ?? he.onboarding.saveFailed);
         return;
       }
-      router.push("/pending-approval");
+      await updateSession();
+      router.replace("/pending-approval");
       router.refresh();
     } catch {
       setError(he.onboarding.saveFailed);
