@@ -10,7 +10,6 @@ import {
 import {
   formatRequestedBranchCodes,
   resolveBranchIdsFromCodes,
-  syncUserBranchAccess,
 } from "@/lib/user-branches";
 import { he } from "@/lib/i18n/he";
 
@@ -66,11 +65,6 @@ export async function POST(req: NextRequest) {
         status: true,
       },
     });
-
-    await syncUserBranchAccess(
-      user.id,
-      branches.map((b) => b.id)
-    );
 
     const res = NextResponse.json({ ok: true, user }, { status: 201 });
     res.cookies.set(STAFF_GATE_COOKIE, "", { path: "/", maxAge: 0 });
