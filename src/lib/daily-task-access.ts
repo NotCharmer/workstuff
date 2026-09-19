@@ -15,6 +15,11 @@ export type DailyTaskRecord = {
   date: string;
 };
 
+export type DailyTaskPatch = {
+  done?: boolean;
+  title?: string;
+};
+
 const taskInclude = {
   author: { select: { id: true, name: true } },
   assignee: { select: { id: true, name: true } },
@@ -165,9 +170,17 @@ export async function loadTaskForUser(
   });
 }
 
-export function assertCanModifyTask(user: CurrentUser, task: DailyTaskRecord): void {
+export function assertCanModifyTask(
+  user: CurrentUser,
+  task: DailyTaskRecord,
+  patch: DailyTaskPatch
+): void {
   if (canManageOthersTasks(user.role)) {
     return;
+  }
+
+  if (patch.title !== undefined && task.authorId !== user.id) {
+    throw new Error("FORBIDDEN");
   }
 
   if (isGeneralTask(task)) {
