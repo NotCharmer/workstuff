@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import type { Prisma } from "@prisma/client";
 import { AuthError, getCurrentUser } from "@/lib/auth";
 import { requireViewBranchId } from "@/lib/branch-scope";
 import { prisma } from "@/lib/db";
@@ -9,6 +8,11 @@ import {
   filterRowsByTargetStudents,
   TARGET_SUBJECT_FILTER_EMPTY_ERROR,
 } from "@/lib/upload/target-subjects";
+import {
+  classNamesForUploadLookup,
+  pickUniqueNameMatch,
+  shouldUpdateClassNameFromUpload,
+} from "@/lib/upload/student-match";
 import { getCurrentSchoolYear } from "@/lib/school-year";
 
 export const runtime = "nodejs";
@@ -85,13 +89,42 @@ export async function POST(req: Request) {
       const rowExternalId = row.externalId?.toString().trim();
       const reliableExternalId = useExternalId && rowExternalId ? rowExternalId : null;
 
-      const studentWhere: Prisma.StudentWhereInput = reliableExternalId
-        ? { branchId, externalId: reliableExternalId }
-        : row.className
-          ? { branchId, firstName, lastName, className: row.className }
-          : { branchId, firstName, lastName };
+      let student: Awaited<ReturnType<typeof prisma.student.findFirst>> = null;
 
-      let student = await prisma.student.findFirst({ where: studentWhere });
+      if (reliableExternalId) {
+        student = await prisma.student.findFirst({
+          where: { branchId, externalId: reliableExternalId },
+        });
+      } else {
+        const classCandidates = classNamesForUploadLookup(row.className);
+        for (const className of classCandidates) {
+          student = await prisma.student.findFirst({
+            where: {
+              branchId,
+              firstName,
+              lastName,
+              className,
+              status: "ACTIVE",
+            },
+          });
+          if (student) break;
+        }
+        if (!student && classCandidates.length === 0) {
+          student = await prisma.student.findFirst({
+            where: { branchId, firstName, lastName, status: "ACTIVE" },
+          });
+        }
+        if (!student) {
+          // After rollover, stale CSV class labels miss the promoted row.
+          // Reuse a unique ACTIVE name match instead of creating a duplicate.
+          const nameMatches = await prisma.student.findMany({
+            where: { branchId, firstName, lastName, status: "ACTIVE" },
+            take: 2,
+          });
+          student = pickUniqueNameMatch(nameMatches);
+        }
+      }
+
       if (!student) {
         student = await prisma.student.create({
           data: {
@@ -105,10 +138,10 @@ export async function POST(req: Request) {
           },
         });
         out.studentsCreated++;
-      } else if (row.className && student.className !== row.className) {
+      } else if (shouldUpdateClassNameFromUpload(student.className, row.className)) {
         await prisma.student.update({
           where: { id: student.id },
-          data: { className: row.className },
+          data: { className: row.className!.trim() },
         });
       }
 
