@@ -63,6 +63,11 @@ model Student {
   // StudentStatus: "ACTIVE" | "GRADUATED"
   status     String   @default("ACTIVE")
   avatarHue  Int      @default(210) // used to color initials avatar
+  needsTutoring Boolean @default(false)
+  // TutoringUrgency: "URGENT" | "MEDIUM" | "LIGHT" | "STANDARD"
+  tutoringUrgency String?
+  // Local wall time "YYYY-MM-DDTHH:mm" for a scheduled tutoring session
+  tutoringScheduledFor String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -77,6 +82,8 @@ model Student {
   @@index([lastName, firstName])
   @@index([className])
   @@index([status])
+  @@index([needsTutoring])
+  @@index([tutoringUrgency])
 }
 
 model Request {
@@ -91,6 +98,7 @@ model Request {
   quantity   Int?
   // RequestStatus: "OPEN" | "DONE"
   status     String   @default("OPEN")
+  tutoringDoneCount Int @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

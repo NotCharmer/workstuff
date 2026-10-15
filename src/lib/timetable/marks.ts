@@ -50,3 +50,9 @@ export function personalSlotKey(input: {
 }) {
   return `${canonicalDay(input.dayOfWeek)}__${padTime(input.startTime)}__${padTime(input.endTime)}`;
 }
+
+export function sameClassName(a: string | null | undefined, b: string | null | undefined) {
+  const left = (a ?? "").trim().replace(/\s+/g, " ");
+  const right = (b ?? "").trim().replace(/\s+/g, " ");
+  return Boolean(left) && left === right;
+}

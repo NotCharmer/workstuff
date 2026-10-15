@@ -4,9 +4,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { avatarGradient, formatGrade, gradeBadgeTone, initials } from "@/lib/utils";
 import { he } from "@/lib/i18n/he";
+import { effectiveTutoringUrgency } from "@/lib/tutoring";
 import { StudentDeleteButton } from "@/components/students/student-delete-button";
 import { StudentGenderSelect } from "@/components/students/student-gender-select";
 import { StudentNameEdit } from "@/components/students/student-name-edit";
+import { StudentTutoringPanel } from "@/components/students/student-tutoring-controls";
 
 export type StudentCardData = {
   id: string;
@@ -20,6 +22,9 @@ export type StudentCardData = {
   average: number | null;
   subjects: string[];
   latestGrade?: { value: number; subject: string } | null;
+  needsTutoring: boolean;
+  tutoringUrgency: string | null;
+  tutoringScheduledFor: string | null;
 };
 
 export function StudentCard({
@@ -83,10 +88,16 @@ export function StudentCard({
         </div>
       </div>
 
-      <div className="relative z-10 mt-4 flex flex-wrap gap-1.5">
+        <div className="relative z-10 mt-4 flex flex-wrap gap-1.5">
         <div className="w-full">
           <StudentGenderSelect studentId={student.id} initialGender={student.gender} compact />
         </div>
+        <StudentTutoringPanel
+          studentId={student.id}
+          initialUrgency={effectiveTutoringUrgency(student.needsTutoring, student.tutoringUrgency)}
+          initialScheduledFor={student.tutoringScheduledFor}
+          compact
+        />
         {student.subjects.slice(0, 3).map((s) => (
           <Badge key={s} variant="secondary" className="text-[11px] font-medium">
             {s}

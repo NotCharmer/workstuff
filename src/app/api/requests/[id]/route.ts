@@ -30,10 +30,13 @@ export async function PATCH(
 
     const existing = await prisma.request.findFirst({
       where: { id: params.id, branchId: branchId ?? null },
-      select: { id: true },
+      select: { id: true, kind: true },
     });
     if (!existing) {
       return NextResponse.json({ ok: false, error: he.requests.notFound }, { status: 404 });
+    }
+    if (parsed.data.recordTutoring && existing.kind !== "TUTORING") {
+      return NextResponse.json({ ok: false, error: he.api.invalidInput }, { status: 400 });
     }
 
     const request = await prisma.request.update({
@@ -46,6 +49,7 @@ export async function PATCH(
             ? undefined
             : parsed.data.details?.trim() || null,
         quantity: parsed.data.quantity === undefined ? undefined : parsed.data.quantity,
+        tutoringDoneCount: parsed.data.recordTutoring ? { increment: 1 } : undefined,
       },
       include: requestInclude,
     });

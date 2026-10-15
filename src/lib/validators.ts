@@ -1,9 +1,15 @@
 import { z } from "zod";
+
 import { he } from "@/lib/i18n/he";
-import { STUDENT_GENDERS } from "@/lib/enums";
-import { USER_ROLES } from "@/lib/enums";
-import { USER_STATUSES } from "@/lib/enums";
-import { REQUEST_KINDS, REQUEST_STATUSES } from "@/lib/enums";
+import {
+  REQUEST_KINDS,
+  REQUEST_STATUSES,
+  STUDENT_GENDERS,
+  TUTORING_URGENCIES,
+  USER_ROLES,
+  USER_STATUSES,
+} from "@/lib/enums";
+import { isValidTutoringWhen } from "@/lib/tutoring";
 
 export const GradeRowSchema = z.object({
   id: z.string(),
@@ -91,6 +97,7 @@ export const PatchRequestSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   details: z.string().trim().max(2000).optional().nullable(),
   quantity: z.number().int().min(1).max(999).optional().nullable(),
+  recordTutoring: z.literal(true).optional(),
 });
 export type PatchRequestInput = z.infer<typeof PatchRequestSchema>;
 
@@ -146,6 +153,13 @@ export const PatchStudentSchema = z.object({
   gender: StudentGenderSchema.nullable().optional(),
   firstName: z.string().trim().min(1, he.validators.nameRequired).max(80).optional(),
   lastName: z.string().trim().min(1, he.validators.nameRequired).max(80).optional(),
+  needsTutoring: z.boolean().optional(),
+  tutoringUrgency: z.enum(TUTORING_URGENCIES).nullable().optional(),
+  tutoringScheduledFor: z
+    .string()
+    .refine(isValidTutoringWhen, "מועד לא תקין")
+    .nullable()
+    .optional(),
 });
 export type PatchStudentInput = z.infer<typeof PatchStudentSchema>;
 

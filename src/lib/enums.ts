@@ -42,3 +42,6 @@ export type RequestKind = (typeof REQUEST_KINDS)[number];
 
 export const REQUEST_STATUSES = ["OPEN", "DONE"] as const;
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
+
+export const TUTORING_URGENCIES = ["URGENT", "MEDIUM", "LIGHT", "STANDARD"] as const;
+export type TutoringUrgency = (typeof TUTORING_URGENCIES)[number];

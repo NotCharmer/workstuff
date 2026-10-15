@@ -33,9 +33,11 @@ import { NotesPanel } from "@/components/students/notes-panel";
 import { GradeManager } from "@/components/students/grade-manager";
 import { StudentGenderSelect } from "@/components/students/student-gender-select";
 import { StudentNameEdit } from "@/components/students/student-name-edit";
+import { StudentTutoringPanel } from "@/components/students/student-tutoring-controls";
 import { SubjectBreakdownList } from "@/components/students/subject-breakdown-list";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { avatarGradient, formatGrade, initials } from "@/lib/utils";
+import { effectiveTutoringUrgency } from "@/lib/tutoring";
 import { computeStudentStats } from "@/lib/stats";
 import { he } from "@/lib/i18n/he";
 import { dateLocaleHe } from "@/lib/i18n";
@@ -254,6 +256,11 @@ export default async function StudentDetailPage({
             <StudentGenderSelect
               studentId={student.id}
               initialGender={student.gender === "FEMALE" ? "FEMALE" : "MALE"}
+            />
+            <StudentTutoringPanel
+              studentId={student.id}
+              initialUrgency={effectiveTutoringUrgency(student.needsTutoring, student.tutoringUrgency)}
+              initialScheduledFor={student.tutoringScheduledFor}
             />
           </div>
         </CardContent>

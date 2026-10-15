@@ -27,6 +27,7 @@ type SearchParams = {
   risk?: "low" | "high";
   avg?: "all" | "important";
   year?: string;
+  tutoring?: string;
 };
 
 const IMPORTANT_SUBJECT_TOKENS = [
@@ -116,6 +117,7 @@ async function fetchStudents(
             }
           : {},
         className ? { className } : {},
+        params.tutoring === "1" ? { needsTutoring: true } : {},
       ],
     },
     include: {
@@ -168,6 +170,9 @@ async function fetchStudents(
       average: avg,
       subjects,
       latestGrade: latest,
+      needsTutoring: s.needsTutoring,
+      tutoringUrgency: s.tutoringUrgency,
+      tutoringScheduledFor: s.tutoringScheduledFor,
     };
   });
 
@@ -297,7 +302,7 @@ export default async function StudentsPage({
 
         <div className="flex gap-2">
           <Button type="submit">{he.students.filter}</Button>
-          {(q || searchParams.class || searchParams.risk) && (
+          {(q || searchParams.class || searchParams.risk || searchParams.tutoring) && (
             <Button asChild type="button" variant="ghost">
               <Link href={studentsClearHref}>{he.students.clear}</Link>
             </Button>
@@ -317,6 +322,11 @@ export default async function StudentsPage({
           active={searchParams.risk === "high"}
           href={buildHref(searchParams, { risk: "high" })}
         />
+        <RiskLink
+          label={he.students.filterTutoring}
+          active={searchParams.tutoring === "1"}
+          href={buildHref(searchParams, { tutoring: searchParams.tutoring === "1" ? "" : "1" })}
+        />
         <div className="ms-auto text-xs text-muted-foreground">
           {students.length}{" "}
           {students.length === 1 ? he.students.result : he.students.results}
@@ -327,14 +337,14 @@ export default async function StudentsPage({
         <EmptyState
           icon={Users}
           title={
-            q || searchParams.class || searchParams.risk
+            q || searchParams.class || searchParams.risk || searchParams.tutoring
               ? he.students.noMatch
               : isCurrentYear
                 ? he.students.emptyNewYearTitle
                 : he.students.noMatch
           }
           description={
-            q || searchParams.class || searchParams.risk
+            q || searchParams.class || searchParams.risk || searchParams.tutoring
               ? he.students.noMatchDesc
               : isCurrentYear
                 ? he.students.emptyNewYearDesc

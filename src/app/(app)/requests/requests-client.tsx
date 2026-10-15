@@ -30,6 +30,8 @@ import { MetricCard } from "@/components/dashboard/metric-card";
 import { he } from "@/lib/i18n/he";
 import { cn } from "@/lib/utils";
 import type { RequestKind, RequestStatus } from "@/lib/enums";
+import { TutoringRequestPlan } from "@/components/requests/tutoring-request-plan";
+import type { PlanSlot } from "@/lib/requests/tutoring-plan";
 
 export type StudentOption = {
   id: string;
@@ -49,6 +51,7 @@ export type RequestRow = {
   studentId: string | null;
   studentName: string | null;
   studentClassName: string | null;
+  tutoringDoneCount: number;
 };
 
 type StatusFilter = "all" | RequestStatus;
@@ -154,9 +157,15 @@ async function copyText(text: string) {
 export function RequestsClient({
   students,
   initialRequests,
+  lessons,
+  pulls,
+  coverage,
 }: {
   students: StudentOption[];
   initialRequests: RequestRow[];
+  lessons: PlanSlot[];
+  pulls: PlanSlot[];
+  coverage: PlanSlot[];
 }) {
   const [requests, setRequests] = useState<RequestRow[]>(initialRequests);
   const [tab, setTab] = useState<RequestKind>("TUTORING");
@@ -172,6 +181,7 @@ export function RequestsClient({
   const [equipmentDetails, setEquipmentDetails] = useState("");
 
   const [pending, startTransition] = useTransition();
+  const [recordingId, setRecordingId] = useState<string | null>(null);
 
   const classes = useMemo(() => {
     const set = new Set<string>();
@@ -308,6 +318,37 @@ export function RequestsClient({
     toast.success(he.requests.toastUpdated);
   }
 
+  async function recordSession(id: string) {
+    const current = requests.find((row) => row.id === id);
+    if (!current || current.kind !== "TUTORING") return;
+    setRecordingId(id);
+    setRequests((prev) =>
+      prev.map((row) =>
+        row.id === id ? { ...row, tutoringDoneCount: row.tutoringDoneCount + 1 } : row
+      )
+    );
+    try {
+      const res = await fetch(`/api/requests/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordTutoring: true }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) {
+        setRequests((prev) => prev.map((row) => (row.id === id ? current : row)));
+        toast.error(json?.error ?? he.requests.toastError);
+        return;
+      }
+      setRequests((prev) => prev.map((row) => (row.id === id ? mapApiRequest(json.request) : row)));
+      toast.success(he.requests.recordSessionSaved);
+    } catch {
+      setRequests((prev) => prev.map((row) => (row.id === id ? current : row)));
+      toast.error(he.requests.toastError);
+    } finally {
+      setRecordingId(null);
+    }
+  }
+
   async function remove(row: RequestRow) {
     if (!window.confirm(he.requests.deleteConfirm)) return;
     setRequests((prev) => prev.filter((r) => r.id !== row.id));
@@ -416,6 +457,22 @@ export function RequestsClient({
               </form>
             </CardContent>
           </Card>
+          <TutoringRequestPlan
+            requests={tutoring.map((row) => ({
+              id: row.id,
+              studentId: row.studentId,
+              studentName: row.studentName,
+              className: row.studentClassName,
+              subject: row.title,
+              tutoringDoneCount: row.tutoringDoneCount,
+              status: row.status,
+            }))}
+            pulls={pulls}
+            lessons={lessons}
+            coverage={coverage}
+            recordingId={recordingId}
+            onRecord={(id) => void recordSession(id)}
+          />
           <RequestList
             title={he.requests.listTutoringTitle}
             emptyTitle={he.requests.emptyTutoring}
@@ -424,6 +481,8 @@ export function RequestsClient({
             statusFilter={statusFilter}
             onStatusFilter={setStatusFilter}
             onToggle={toggleStatus}
+            onRecord={(row) => void recordSession(row.id)}
+            recordingId={recordingId}
             onDelete={remove}
             kind="TUTORING"
           />
@@ -510,6 +569,7 @@ function mapApiRequest(r: {
   quantity: number | null;
   status: string;
   createdAt: string | Date;
+  tutoringDoneCount?: number;
   author?: { name: string } | null;
   student?: { id: string; firstName: string; lastName: string; className: string | null } | null;
 }): RequestRow {
@@ -525,6 +585,7 @@ function mapApiRequest(r: {
     studentId: r.student?.id ?? null,
     studentName: r.student ? `${r.student.firstName} ${r.student.lastName}` : null,
     studentClassName: r.student?.className ?? null,
+    tutoringDoneCount: r.tutoringDoneCount ?? 0,
   };
 }
 
@@ -536,6 +597,8 @@ function RequestList({
   statusFilter,
   onStatusFilter,
   onToggle,
+  onRecord,
+  recordingId,
   onDelete,
   kind,
 }: {
@@ -546,6 +609,8 @@ function RequestList({
   statusFilter: StatusFilter;
   onStatusFilter: (v: StatusFilter) => void;
   onToggle: (row: RequestRow) => void;
+  onRecord?: (row: RequestRow) => void;
+  recordingId?: string | null;
   onDelete: (row: RequestRow) => void;
   kind: RequestKind;
 }) {
@@ -606,6 +671,11 @@ function RequestList({
                       {row.studentClassName ? ` · ${row.studentClassName}` : ""}
                     </p>
                   )}
+                  {kind === "TUTORING" && (
+                    <p className="mt-1 text-sm font-medium">
+                      {he.requests.sessionCount(row.tutoringDoneCount, row.title)}
+                    </p>
+                  )}
                   {row.details && (
                     <p className="mt-1 text-sm text-muted-foreground">{row.details}</p>
                   )}
@@ -615,7 +685,19 @@ function RequestList({
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <Button type="button" size="sm" variant="secondary" onClick={() => onToggle(row)}>
+                  {onRecord ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={recordingId === row.id}
+                      onClick={() => onRecord(row)}
+                    >
+                      {recordingId === row.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      {he.requests.recordSession}
+                    </Button>
+                  ) : null}
+                  <Button type="button" size="sm" variant="outline" onClick={() => onToggle(row)}>
                     {row.status === "OPEN" ? he.requests.markDone : he.requests.markOpen}
                   </Button>
                   <button

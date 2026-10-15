@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Star } from "lucide-react";
+import { Star, UserMinus } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { he } from "@/lib/i18n/he";
 import { Button } from "@/components/ui/button";
@@ -63,12 +63,20 @@ export default async function TimetablePage() {
           <h1 className="font-display text-3xl font-semibold tracking-tight">{he.timetable.title}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{he.timetable.subtitle}</p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/my-timetable">
-            <Star className="h-4 w-4" />
-            {he.nav.myTimetable}
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href="/my-timetable">
+              <Star className="h-4 w-4" />
+              {he.nav.myTimetable}
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/tutoring-timetable">
+              <UserMinus className="h-4 w-4" />
+              {he.nav.tutoringTimetable}
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <Card>

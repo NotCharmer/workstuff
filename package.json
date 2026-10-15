@@ -19,6 +19,9 @@
     "db:migrate-requests": "tsx scripts/migrate-requests-neon.ts",
     "db:migrate-lesson-marks": "tsx scripts/migrate-lesson-marks-neon.ts",
     "db:migrate-personal-slots": "tsx scripts/migrate-personal-slots-neon.ts",
+    "db:migrate-needs-tutoring": "tsx scripts/migrate-needs-tutoring-neon.ts",
+    "db:migrate-tutoring-urgency": "tsx scripts/migrate-tutoring-urgency-neon.ts",
+    "db:migrate-tutoring-done-count": "tsx scripts/migrate-tutoring-done-count-neon.ts",
     "db:reset-password": "tsx scripts/reset-user-password-neon.ts",
     "postinstall": "prisma generate"
   },
